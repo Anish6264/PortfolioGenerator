@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>{{name}} | {{title}}</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <header class="navbar">
+        <div class="container nav-container">
+
+            <a href="#home" class="logo">
+                {{name}}
+            </a>
+
+            <nav>
+                <a href="#about">About</a>
+                <a href="#skills">Skills</a>
+                <a href="#projects">Projects</a>
+                <a href="#contact">Contact</a>
+            </nav>
+
+        </div>
+    </header>
+
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+
+        <div class="container hero-container">
+
+            <div class="hero-content">
+
+                <p class="hero-intro">
+                    Hello, I'm
+                </p>
+
+                <h1>
+                    {{name}}
+                </h1>
+
+                <h2>
+                    {{title}}
+                </h2>
+
+                <p class="hero-description">
+                    {{shortIntro}}
+                </p>
+
+                <div class="hero-buttons">
+
+                    <a href="#projects" class="btn primary-btn">
+                        View My Work
+                    </a>
+
+                    <a href="#contact" class="btn secondary-btn">
+                        Contact Me
+                    </a>
+
+                </div>
+
+            </div>
+
+            <div class="hero-image">
+
+                <img
+                    src="{{profileImage}}"
+                    alt="{{name}} profile photo"
+                >
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- About Section -->
+    <section id="about" class="section">
+
+        <div class="container">
+
+            <div class="section-heading">
+                <p>About Me</p>
+                <h2>Who I Am</h2>
+            </div>
+
+            <div class="about-content">
+
+                <p>
+                    {{about}}
+                </p>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Skills Section -->
+    <section id="skills" class="section">
+
+        <div class="container">
+
+            <div class="section-heading">
+                <p>My Skills</p>
+                <h2>Technologies I Work With</h2>
+            </div>
+
+            <div class="skills-container">
+
+                {{skills}}
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Projects Section -->
+    <section id="projects" class="section">
+
+        <div class="container">
+
+            <div class="section-heading">
+                <p>My Work</p>
+                <h2>Featured Projects</h2>
+            </div>
+
+            <div class="projects-container">
+
+                {{projects}}
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Contact Section -->
+    <section id="contact" class="section contact-section">
+
+        <div class="container">
+
+            <div class="section-heading">
+                <p>Get In Touch</p>
+                <h2>Let's Work Together</h2>
+            </div>
+
+            <div class="contact-content">
+
+                <p>
+                    I'm always open to discussing new opportunities,
+                    interesting projects, and collaborations.
+                </p>
+
+                <a
+                    href="mailto:{{email}}"
+                    class="btn primary-btn"
+                >
+                    {{email}}
+                </a>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Footer -->
+    <footer>
+
+        <div class="container footer-container">
+
+            <p>
+                © 2026 {{name}}. All rights reserved.
+            </p>
+
+            <div class="social-links">
+
+                <a href="{{github}}" target="_blank">
+                    GitHub
+                </a>
+
+                <a href="{{linkedin}}" target="_blank">
+                    LinkedIn
+                </a>
+
+            </div>
+
+        </div>
+
+    </footer>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
