@@ -5,6 +5,7 @@ const authRoutes = require("./routes/auth.routes");
 const templateRoutes = require("./routes/template.routes");
 const portfolioRoutes = require("./routes/portfolio.routes");
 const generatorRoutes = require("./routes/generator.routes");
+const uploadRoutes = require("./routes/upload.routes");
 
 const app = express();
 
@@ -21,5 +22,6 @@ app.use("/api/auth", authRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/portfolios", portfolioRoutes);
 app.use("/api/generator", generatorRoutes);
+app.use("/api/uploads", uploadRoutes);
 
 module.exports = app;

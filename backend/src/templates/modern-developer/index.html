@@ -14,6 +14,7 @@
 
     <!-- Navigation -->
     <header class="navbar">
+
         <div class="container nav-container">
 
             <a href="#home" class="logo">
@@ -22,12 +23,15 @@
 
             <nav>
                 <a href="#about">About</a>
+                <a href="#education">Education</a>
+                <a href="#experience">Experience</a>
                 <a href="#skills">Skills</a>
                 <a href="#projects">Projects</a>
                 <a href="#contact">Contact</a>
             </nav>
 
         </div>
+
     </header>
 
 
@@ -56,12 +60,27 @@
 
                 <div class="hero-buttons">
 
-                    <a href="#projects" class="btn primary-btn">
+                    <a
+                        href="#projects"
+                        class="btn primary-btn"
+                    >
                         View My Work
                     </a>
 
-                    <a href="#contact" class="btn secondary-btn">
+                    <a
+                        href="#contact"
+                        class="btn secondary-btn"
+                    >
                         Contact Me
+                    </a>
+
+                    <a
+                        href="{{resume}}"
+                        class="btn secondary-btn"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Download Resume
                     </a>
 
                 </div>
@@ -88,8 +107,11 @@
         <div class="container">
 
             <div class="section-heading">
+
                 <p>About Me</p>
+
                 <h2>Who I Am</h2>
+
             </div>
 
             <div class="about-content">
@@ -105,14 +127,65 @@
     </section>
 
 
+    <!-- Education Section -->
+    <section id="education" class="section">
+
+        <div class="container">
+
+            <div class="section-heading">
+
+                <p>My Education</p>
+
+                <h2>Education</h2>
+
+            </div>
+
+            <div class="education-container">
+
+                {{education}}
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Experience Section -->
+    <section id="experience" class="section">
+
+        <div class="container">
+
+            <div class="section-heading">
+
+                <p>My Experience</p>
+
+                <h2>Work Experience</h2>
+
+            </div>
+
+            <div class="experience-container">
+
+                {{experience}}
+
+            </div>
+
+        </div>
+
+    </section>
+
+
     <!-- Skills Section -->
     <section id="skills" class="section">
 
         <div class="container">
 
             <div class="section-heading">
+
                 <p>My Skills</p>
+
                 <h2>Technologies I Work With</h2>
+
             </div>
 
             <div class="skills-container">
@@ -132,8 +205,11 @@
         <div class="container">
 
             <div class="section-heading">
+
                 <p>My Work</p>
+
                 <h2>Featured Projects</h2>
+
             </div>
 
             <div class="projects-container">
@@ -153,8 +229,11 @@
         <div class="container">
 
             <div class="section-heading">
+
                 <p>Get In Touch</p>
+
                 <h2>Let's Work Together</h2>
+
             </div>
 
             <div class="contact-content">
@@ -189,11 +268,19 @@
 
             <div class="social-links">
 
-                <a href="{{github}}" target="_blank">
+                <a
+                    href="{{github}}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
                     GitHub
                 </a>
 
-                <a href="{{linkedin}}" target="_blank">
+                <a
+                    href="{{linkedin}}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
                     LinkedIn
                 </a>
 
