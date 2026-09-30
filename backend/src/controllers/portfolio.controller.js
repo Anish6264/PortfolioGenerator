@@ -1,5 +1,18 @@
 const Portfolio = require("../models/Portfolio");
 
+const editablePortfolioFields = [
+    "template",
+    "personal",
+    "shortIntro",
+    "about",
+    "skills",
+    "education",
+    "experience",
+    "projects",
+    "social",
+    "resume"
+];
+
 const createPortfolio = async (req, res) => {
     try {
         const portfolio = await Portfolio.create({
@@ -65,12 +78,20 @@ const getPortfolioById = async (req, res) => {
 
 const updatePortfolio = async (req, res) => {
     try {
+        const updates = Object.fromEntries(
+            editablePortfolioFields
+                .filter((field) =>
+                    Object.prototype.hasOwnProperty.call(req.body || {}, field)
+                )
+                .map((field) => [field, req.body[field]])
+        );
+
         const portfolio = await Portfolio.findOneAndUpdate(
             {
                 _id: req.params.id,
                 user: req.user.id
             },
-            req.body,
+            updates,
             {
                 new: true,
                 runValidators: true
