@@ -14,6 +14,10 @@ export const AuthProvider = ({ children }) => {
         localStorage.getItem("token")
     );
 
+    const [isAuthLoading, setIsAuthLoading] = useState(
+        () => !!localStorage.getItem("token")
+    );
+
     useEffect(() => {
 
         if (token) {
@@ -29,12 +33,37 @@ export const AuthProvider = ({ children }) => {
 
     }, [token]);
 
+    useEffect(() => {
+        const restoreUser = async () => {
+            if (!token) {
+                setIsAuthLoading(false);
+                return;
+            }
+
+            try {
+                const response = await api.get("/auth/me");
+                setUser(response.data.user);
+            } catch (error) {
+                if (error.response?.status === 401 || error.response?.status === 404) {
+                    localStorage.removeItem("token");
+                    setToken(null);
+                    setUser(null);
+                }
+            } finally {
+                setIsAuthLoading(false);
+            }
+        };
+
+        restoreUser();
+    }, []);
+
     const login = (token, user) => {
 
         localStorage.setItem("token", token);
 
         setToken(token);
         setUser(user);
+        setIsAuthLoading(false);
     };
 
     const logout = () => {
@@ -52,7 +81,8 @@ export const AuthProvider = ({ children }) => {
                 token,
                 login,
                 logout,
-                isAuthenticated: !!token
+                isAuthenticated: !!token,
+                isAuthLoading
             }}
         >
             {children}
