@@ -11,6 +11,7 @@ const {
     updatePortfolioStatus,
     deletePortfolio
 } = require("../controllers/portfolio.controller");
+const { getPortfolioAnalytics } = require("../controllers/portfolioAnalytics.controller");
 
 const router = express.Router();
 
@@ -21,6 +22,8 @@ router.get("/", protect, getMyPortfolios);
 router.post("/:id/duplicate", protect, duplicatePortfolio);
 
 router.patch("/:id/status", protect, updatePortfolioStatus);
+
+router.get("/:id/analytics", protect, getPortfolioAnalytics);
 
 router.get("/:id", protect, getPortfolioById);
 

@@ -400,7 +400,7 @@ const generateExperienceHTML = (experience) => {
 const generateProjectsHTML = (projects) => {
 
     return projects
-        .map((project) => {
+        .map((project, projectIndex) => {
 
 
             // --------------------------------------
@@ -431,6 +431,8 @@ const generateProjectsHTML = (projects) => {
                 liveUrl
                     ? `
                         <a
+                            data-project-link="live"
+                            data-project-index="${projectIndex}"
                             href="${escapeHtml(liveUrl)}"
                             target="_blank"
                             rel="noopener noreferrer"
@@ -445,6 +447,8 @@ const generateProjectsHTML = (projects) => {
                 githubUrl
                     ? `
                         <a
+                            data-project-link="github"
+                            data-project-index="${projectIndex}"
                             href="${escapeHtml(githubUrl)}"
                             target="_blank"
                             rel="noopener noreferrer"

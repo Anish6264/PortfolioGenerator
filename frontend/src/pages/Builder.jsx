@@ -6,6 +6,9 @@ import {
 } from "react-router-dom";
 
 import api from "../services/api";
+import ProposedChangesReview from "../components/ProposedChangesReview";
+import { validateProposedPortfolioData } from "../utils/proposedPortfolioData";
+import buildAIRequest from "../utils/aiContentContext";
 
 const supportedSections = [
     "about",
@@ -72,9 +75,12 @@ function Builder() {
     const [error, setError] = useState("");
     const [autosaveStatus, setAutosaveStatus] = useState("Saved");
     const [portfolioLoaded, setPortfolioLoaded] = useState(false);
+    const [savedSnapshotState, setSavedSnapshotState] = useState("");
     const autosaveTimer = useRef(null);
     const autosaveRequest = useRef(null);
     const lastSavedSnapshot = useRef("");
+    const autosaveRevision = useRef(0);
+    const saveInProgress = useRef(false);
 
 
     // --------------------------------------------------
@@ -171,6 +177,57 @@ function Builder() {
     const [technologyInputs, setTechnologyInputs] =
         useState({});
 
+    const [importBusy, setImportBusy] = useState("");
+    const [importMessage, setImportMessage] = useState("");
+    const [githubReference, setGithubReference] = useState("");
+    const [reviewProposal, setReviewProposal] = useState(null);
+
+    const pendingFiles = {
+        ...(profileImageFile ? { profileImage: profileImageFile.name } : {}),
+        ...(resumeFile ? { resume: resumeFile.name } : {})
+    };
+    const currentSnapshot = JSON.stringify({ ...formData, template: selectedTemplateId, ...(Object.keys(pendingFiles).length ? { pendingFiles } : {}) });
+    const meaningfulData = Boolean(
+        Object.values(formData.personal).some((value) => String(value || "").trim()) ||
+        Object.values(formData.social).some((value) => String(value || "").trim()) ||
+        formData.shortIntro.trim() || formData.about.trim() || formData.skills.length ||
+        formData.education.some((item) => Object.values(item).some((value) => String(value || "").trim())) ||
+        formData.experience.some((item) => Object.values(item).some((value) => String(value || "").trim())) ||
+        formData.projects.some((item) => item.title.trim() || item.description.trim() || item.githubUrl.trim() || item.liveUrl.trim() || item.technologies.length) ||
+        formData.customSections.some((item) => item.title.trim() || item.content.trim()) ||
+        formData.seoTitle.trim() || formData.seoDescription.trim() || formData.sectionOrder.length > 0 ||
+        Object.values(formData.sectionVisibility).some((visible) => !visible) ||
+        formData.primaryColor !== "#111827" || formData.secondaryColor !== "#6b7280" ||
+        formData.backgroundColor !== "#ffffff" || formData.textColor !== "#1f2937" || formData.fontFamily !== "Arial"
+    );
+    const hasUnsavedChanges = (portfolioLoaded || !isEditMode) && meaningfulData && currentSnapshot !== savedSnapshotState;
+
+    useEffect(() => {
+        const confirmInternalNavigation = (event) => {
+            const anchor = event.target.closest?.("a[href]");
+            if (!anchor || !hasUnsavedChanges || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || anchor.target === "_blank") return;
+            const destination = new URL(anchor.href, window.location.href);
+            if (destination.origin !== window.location.origin || destination.pathname === window.location.pathname) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (window.confirm("You have unsaved portfolio changes. Leave this page?")) {
+                navigate(`${destination.pathname}${destination.search}${destination.hash}`);
+            }
+        };
+        document.addEventListener("click", confirmInternalNavigation, true);
+        return () => document.removeEventListener("click", confirmInternalNavigation, true);
+    }, [hasUnsavedChanges, navigate]);
+
+    useEffect(() => {
+        if (!hasUnsavedChanges) return undefined;
+        const warnBeforeUnload = (event) => {
+            event.preventDefault();
+            event.returnValue = "";
+        };
+        window.addEventListener("beforeunload", warnBeforeUnload);
+        return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+    }, [hasUnsavedChanges]);
+
     const handleTemplateSelectorToggle = async () => {
         if (showTemplateSelector) {
             setShowTemplateSelector(false);
@@ -194,6 +251,98 @@ function Builder() {
         } finally {
             setLoadingTemplates(false);
         }
+    };
+
+    const showProposal = (source, data, replacements = {}) => {
+        const validationError = validateProposedPortfolioData(data);
+        if (validationError) {
+            setImportMessage("The imported content was invalid and has not changed your portfolio.");
+            return;
+        }
+        setReviewProposal({ source, data, replacements, id: Date.now() });
+        setImportMessage("");
+    };
+
+    const handleResumeImport = async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf") || file.size > 5 * 1024 * 1024) {
+            setImportMessage("Choose a PDF resume that is 5 MB or smaller.");
+            event.target.value = "";
+            return;
+        }
+
+        const upload = new FormData();
+        upload.append("resume", file);
+        setImportBusy("resume");
+        setImportMessage("");
+        try {
+            const response = await api.post("/import/resume", upload, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+            if (response.data.proposedData) showProposal("resume", response.data.proposedData);
+            else setImportMessage(response.data.message || "No resume data was imported.");
+        } catch (requestError) {
+            setImportMessage(requestError.response?.data?.message || "Resume import is currently unavailable.");
+        } finally {
+            setImportBusy("");
+            event.target.value = "";
+        }
+    };
+
+    const handleGitHubImport = async () => {
+        setImportBusy("github");
+        setImportMessage("");
+        try {
+            const response = await api.post("/import/github", { reference: githubReference });
+            if (response.data.proposedData) showProposal("GitHub", response.data.proposedData);
+            else if (Array.isArray(response.data.repositories) && response.data.repositories.length) {
+                setReviewProposal({ source: "GitHub", data: {}, repositories: response.data.repositories, id: Date.now() });
+            }
+            else setImportMessage(response.data.message || "No GitHub data was imported.");
+        } catch (requestError) {
+            setImportMessage(requestError.response?.data?.message || "GitHub import is currently unavailable.");
+        } finally {
+            setImportBusy("");
+        }
+    };
+
+    const handleAiContentRequest = async (type, input, context, target) => {
+        setImportBusy(`ai-${target}`);
+        setImportMessage("");
+        try {
+            const response = await api.post("/ai/content", buildAIRequest(type, input, context));
+            const content = response.data.content ?? response.data.proposedText;
+            if (typeof content !== "string") {
+                setImportMessage(response.data.message || "No generated content was returned.");
+                return;
+            }
+
+            const proposedText = content.trim();
+            if (!proposedText || proposedText.length > (response.data.maxLength || 4000)) {
+                setImportMessage("The generated content was invalid and has not changed your portfolio.");
+                return;
+            }
+            if (type === "about" || type === "shortIntro") {
+                showProposal("AI-assisted", { [type]: proposedText });
+            } else if (type === "skills") {
+                const skills = proposedText.split(/[\n,]+/).map((skill) => skill.trim()).filter(Boolean);
+                showProposal("AI-assisted", { skills });
+            } else {
+                const [section, index] = target.split(".");
+                showProposal("AI-assisted", {}, { [`${section}.${index}.description`]: proposedText });
+            }
+        } catch (requestError) {
+            setImportMessage(requestError.response?.data?.message || "AI-assisted content is currently unavailable. Your data was not changed.");
+        } finally {
+            setImportBusy("");
+        }
+    };
+
+    const applyProposal = (mergedData) => {
+        setFormData(mergedData);
+        setReviewProposal(null);
+        setImportMessage("Selected changes were applied. Save or continue editing to keep them.");
     };
 
 
@@ -351,10 +500,12 @@ function Builder() {
                 };
 
                 setFormData(loadedFormData);
-                lastSavedSnapshot.current = JSON.stringify({
+                const loadedSnapshot = JSON.stringify({
                     ...loadedFormData,
                     template: portfolio.template?._id || portfolio.template
                 });
+                lastSavedSnapshot.current = loadedSnapshot;
+                setSavedSnapshotState(loadedSnapshot);
                 setPortfolioLoaded(true);
 
             } catch (error) {
@@ -396,6 +547,7 @@ function Builder() {
             return undefined;
         }
 
+        const revision = ++autosaveRevision.current;
         setAutosaveStatus("Saving...");
         autosaveTimer.current = setTimeout(() => {
             const request = (autosaveRequest.current || Promise.resolve())
@@ -405,12 +557,15 @@ function Builder() {
 
             request
                 .then(() => {
-                    lastSavedSnapshot.current = snapshot;
-                    setAutosaveStatus("Saved");
+                    if (revision === autosaveRevision.current) {
+                        lastSavedSnapshot.current = snapshot;
+                        setSavedSnapshotState(snapshot);
+                        setAutosaveStatus("Saved");
+                    }
                 })
                 .catch((autosaveError) => {
                     console.error("Portfolio autosave failed:", autosaveError);
-                    setAutosaveStatus("Autosave failed");
+                    if (revision === autosaveRevision.current) setAutosaveStatus("Autosave failed");
                 })
                 .finally(() => {
                     if (autosaveRequest.current === request) {
@@ -1094,6 +1249,8 @@ function Builder() {
 
         event.preventDefault();
 
+        if (saveInProgress.current) return;
+
         clearTimeout(autosaveTimer.current);
 
 
@@ -1109,6 +1266,7 @@ function Builder() {
 
         setError("");
 
+        saveInProgress.current = true;
         setLoading(true);
 
 
@@ -1154,6 +1312,8 @@ function Builder() {
                 response.data.portfolio;
 
             lastSavedSnapshot.current = JSON.stringify(portfolioData);
+            setSavedSnapshotState(lastSavedSnapshot.current);
+            autosaveRevision.current += 1;
             setAutosaveStatus("Saved");
 
 
@@ -1216,6 +1376,8 @@ function Builder() {
 
 
                 setUploadingFiles(false);
+                setProfileImageFile(null);
+                setResumeFile(null);
             }
 
 
@@ -1240,6 +1402,7 @@ function Builder() {
 
         } finally {
 
+            saveInProgress.current = false;
             setLoading(false);
         }
     };
@@ -1300,6 +1463,22 @@ function Builder() {
                     {error}
 
                 </p>
+            )}
+
+            {importMessage && <p role="status">{importMessage}</p>}
+
+            {reviewProposal && (
+                <ProposedChangesReview
+                    key={reviewProposal.id}
+                    proposal={reviewProposal}
+                    currentData={formData}
+                    onAccept={applyProposal}
+                    onReject={() => {
+                        setReviewProposal(null);
+                        setImportMessage("Proposal rejected. Your existing portfolio data was kept.");
+                    }}
+                    onCancel={() => setReviewProposal(null)}
+                />
             )}
 
             {isEditMode && (
@@ -1685,6 +1864,18 @@ function Builder() {
 
                     </div>
 
+                    <div>
+                        <h3>Import from Resume</h3>
+                        <p>Upload a PDF to prepare a reviewed import. Existing fields are not replaced automatically.</p>
+                        <input
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            onChange={handleResumeImport}
+                            disabled={Boolean(importBusy)}
+                        />
+                        {importBusy === "resume" && <span role="status"> Preparing resume import...</span>}
+                    </div>
+
 
                     <p>
                         Maximum file size: 5 MB
@@ -1715,6 +1906,17 @@ function Builder() {
                         }
                     />
 
+                    <button
+                        type="button"
+                        onClick={() => handleAiContentRequest("shortIntro", formData.shortIntro, {
+                            title: formData.personal.title,
+                            skills: formData.skills
+                        }, "shortIntro")}
+                        disabled={Boolean(importBusy)}
+                    >
+                        {importBusy === "ai-shortIntro" ? "Preparing..." : "AI Assist - Short Introduction"}
+                    </button>
+
 
                     <textarea
                         name="about"
@@ -1726,6 +1928,17 @@ function Builder() {
                             handleBasicChange
                         }
                     />
+
+                    <button
+                        type="button"
+                        onClick={() => handleAiContentRequest("about", formData.about, {
+                            title: formData.personal.title,
+                            skills: formData.skills
+                        }, "about")}
+                        disabled={Boolean(importBusy)}
+                    >
+                        {importBusy === "ai-about" ? "Preparing..." : "AI Assist - Summary"}
+                    </button>
 
                 </section>
 
@@ -1739,6 +1952,17 @@ function Builder() {
                     <h2>
                         Skills
                     </h2>
+
+                    <button
+                        type="button"
+                        onClick={() => handleAiContentRequest("skills", formData.skills.join(", "), {
+                            title: formData.personal.title,
+                            skills: formData.skills
+                        }, "skills")}
+                        disabled={Boolean(importBusy)}
+                    >
+                        {importBusy === "ai-skills" ? "Preparing..." : "AI Assist - Skills"}
+                    </button>
 
 
                     <input
@@ -2009,6 +2233,18 @@ function Builder() {
                                     }
                                 />
 
+                                <button
+                                    type="button"
+                                    onClick={() => handleAiContentRequest("experienceDescription", experience.description, {
+                                        role: experience.role,
+                                        title: formData.personal.title,
+                                        existingDescription: experience.description.slice(0, 500)
+                                    }, `experience.${index}`)}
+                                    disabled={Boolean(importBusy)}
+                                >
+                                    {importBusy === `ai-experience.${index}` ? "Preparing..." : "AI Assist - Experience Description"}
+                                </button>
+
 
                                 <button
                                     type="button"
@@ -2039,6 +2275,24 @@ function Builder() {
                 {/* =====================================
                     PROJECTS
                 ====================================== */}
+
+                <section>
+
+                    <h2>Import from GitHub</h2>
+                    <label>
+                        GitHub username or profile URL{" "}
+                        <input
+                            value={githubReference}
+                            onChange={(event) => setGithubReference(event.target.value)}
+                            maxLength={300}
+                        />
+                    </label>
+                    <button type="button" onClick={handleGitHubImport} disabled={Boolean(importBusy) || !githubReference.trim()}>
+                        {importBusy === "github" ? "Preparing import..." : "Import from GitHub"}
+                    </button>
+
+                </section>
+
 
                 <section>
 
@@ -2088,6 +2342,18 @@ function Builder() {
                                         )
                                     }
                                 />
+
+                                <button
+                                    type="button"
+                                    onClick={() => handleAiContentRequest("projectDescription", project.description, {
+                                        projectTitle: project.title,
+                                        technologies: project.technologies,
+                                        existingDescription: project.description.slice(0, 500)
+                                    }, `projects.${projectIndex}`)}
+                                    disabled={Boolean(importBusy)}
+                                >
+                                    {importBusy === `ai-projects.${projectIndex}` ? "Preparing..." : "AI Assist - Project Description"}
+                                </button>
 
 
                                 {/* Technologies */}

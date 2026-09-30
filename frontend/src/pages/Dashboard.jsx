@@ -31,6 +31,11 @@ function Dashboard() {
 
     const [updatingId, setUpdatingId] = useState(null);
 
+    const [analyticsById, setAnalyticsById] = useState({});
+
+    const [analyticsLoadingId, setAnalyticsLoadingId] = useState(null);
+    const [analyticsRange, setAnalyticsRange] = useState("all");
+
     const [shareFeedback, setShareFeedback] = useState({ slug: "", message: "" });
 
     const generationLock = useRef(false);
@@ -189,6 +194,37 @@ function Dashboard() {
             );
         } finally {
             setUpdatingId(null);
+        }
+    };
+
+    const handleAnalytics = async (portfolioId) => {
+        try {
+            setAnalyticsLoadingId(portfolioId);
+            setError("");
+            const response = await api.get(`/portfolios/${portfolioId}/analytics?range=${analyticsRange}`);
+            setAnalyticsById((current) => ({ ...current, [portfolioId]: response.data }));
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Failed to load portfolio analytics");
+        } finally {
+            setAnalyticsLoadingId(null);
+        }
+    };
+
+    const handleAnalyticsRangeChange = async (range) => {
+        setAnalyticsRange(range);
+        const portfolioIds = Object.keys(analyticsById);
+        if (!portfolioIds.length) return;
+        try {
+            setAnalyticsLoadingId("all");
+            const results = await Promise.all(portfolioIds.map(async (portfolioId) => {
+                const response = await api.get(`/portfolios/${portfolioId}/analytics?range=${range}`);
+                return [portfolioId, response.data];
+            }));
+            setAnalyticsById(Object.fromEntries(results));
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Failed to refresh portfolio analytics");
+        } finally {
+            setAnalyticsLoadingId(null);
         }
     };
 
@@ -370,6 +406,15 @@ function Dashboard() {
                     My Portfolios
                 </h2>
 
+                <label>
+                    Analytics period{" "}
+                    <select value={analyticsRange} onChange={(event) => handleAnalyticsRangeChange(event.target.value)}>
+                        <option value="7d">Last 7 days</option>
+                        <option value="30d">Last 30 days</option>
+                        <option value="all">All time</option>
+                    </select>
+                </label>
+
                 <div>
                     <label>
                         Search by name or title{" "}
@@ -470,6 +515,18 @@ function Dashboard() {
                                     </p>
 
                                     <p>Status: {portfolio.status || "draft"}</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleAnalytics(portfolio._id)}
+                                        disabled={analyticsLoadingId === portfolio._id || analyticsLoadingId === "all"}
+                                    >
+                                        {analyticsLoadingId === portfolio._id ? "Loading analytics..." : "Analytics"}
+                                    </button>
+                                    {analyticsById[portfolio._id] && (
+                                        <p>
+                                            Views: {analyticsById[portfolio._id].views} · Resume clicks: {analyticsById[portfolio._id].resumeClicks} · Project clicks: {analyticsById[portfolio._id].projectClicks}
+                                        </p>
+                                    )}
                                     {portfolio.status === "published" && portfolio.slug && (
                                         <p>
                                             Public page:{" "}

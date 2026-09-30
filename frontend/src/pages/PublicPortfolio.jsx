@@ -68,7 +68,11 @@ function PublicPortfolio() {
     const publicBase = `${api.defaults.baseURL}/public/portfolios/${encodeURIComponent(slug)}`;
     const html = portfolio.html
         .replace(/assets\/profile-image\.(?:jpe?g|png|webp)/gi, `${publicBase}/profile-image`)
-        .replaceAll("assets/resume.pdf", `${publicBase}/resume`);
+        .replaceAll("assets/resume.pdf", `${publicBase}/resume`)
+        .replaceAll(
+            `href="/api/public/portfolios/${encodeURIComponent(slug)}/project/`,
+            `href="${publicBase}/project/`
+        );
 
     return (
         <main>
