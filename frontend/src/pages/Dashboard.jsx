@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import api from "../services/api";
@@ -30,6 +30,21 @@ function Dashboard() {
     const [templateFilter, setTemplateFilter] = useState("all");
 
     const [updatingId, setUpdatingId] = useState(null);
+
+    const [shareFeedback, setShareFeedback] = useState({ slug: "", message: "" });
+
+    const generationLock = useRef(false);
+
+    const copyPublicLink = async (slug) => {
+        const publicUrl = `${window.location.origin}/p/${slug}`;
+        try {
+            if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
+            await navigator.clipboard.writeText(publicUrl);
+            setShareFeedback({ slug, message: "Public link copied." });
+        } catch {
+            setShareFeedback({ slug, message: "Could not access the clipboard. Select the URL to copy it." });
+        }
+    };
 
     const templateNames = Array.from(new Set(
         portfolios
@@ -182,7 +197,10 @@ function Dashboard() {
     // Generate and download portfolio
     // --------------------------------------------------
 
-    const handleGenerate = async (portfolioId) => {
+    const handleGenerate = async (portfolio) => {
+        if (generationLock.current) return;
+        generationLock.current = true;
+        const portfolioId = portfolio._id;
 
         try {
 
@@ -213,7 +231,15 @@ function Dashboard() {
 
             link.href = url;
 
-            link.download = "my-portfolio.zip";
+            const fileBase = (portfolio.personal?.name || portfolio.personal?.title || "portfolio")
+                .normalize("NFKD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/^-+|-+$/g, "")
+                .slice(0, 70)
+                .replace(/-+$/g, "") || "portfolio";
+            link.download = `${fileBase}-portfolio.zip`;
 
             document.body.appendChild(link);
 
@@ -221,7 +247,7 @@ function Dashboard() {
 
             link.remove();
 
-            window.URL.revokeObjectURL(url);
+            window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
 
             try {
                 await refreshUser();
@@ -232,15 +258,28 @@ function Dashboard() {
         } catch (error) {
 
             console.error(error);
-
-            setError(
-                error.response?.status === 402
-                    ? "Insufficient credits"
-                    : "Failed to generate portfolio"
-            );
+            const status = error.response?.status;
+            const message = status === 402
+                ? "Insufficient credits. Add credits before downloading."
+                : status === 401
+                    ? "Your session has expired. Please sign in again."
+                    : status === 403
+                        ? "You do not have access to this portfolio."
+                        : status === 404
+                            ? "The portfolio or its template could not be found."
+                            : status === 400
+                                ? "This portfolio has invalid or incomplete data and could not be generated."
+                                : "Portfolio generation failed. Please try again.";
+            setError(message);
+            try {
+                await refreshUser();
+            } catch (refreshError) {
+                console.error("Failed to refresh user data:", refreshError);
+            }
 
         } finally {
 
+            generationLock.current = false;
             setGeneratingId(null);
         }
     };
@@ -298,6 +337,8 @@ function Dashboard() {
                     <p>
                         Credits: {user?.credits ?? 0}
                     </p>
+
+                    <Link to="/profile">Profile / Account</Link>
 
                 </div>
 
@@ -429,6 +470,23 @@ function Dashboard() {
                                     </p>
 
                                     <p>Status: {portfolio.status || "draft"}</p>
+                                    {portfolio.status === "published" && portfolio.slug && (
+                                        <p>
+                                            Public page:{" "}
+                                                <label>
+                                                    Public URL{" "}
+                                                    <input
+                                                        type="url"
+                                                        readOnly
+                                                        value={`${window.location.origin}/p/${portfolio.slug}`}
+                                                        aria-label={`Public URL for ${portfolio.personal?.name || "portfolio"}`}
+                                                    />
+                                                </label>{" "}
+                                                <button type="button" onClick={() => copyPublicLink(portfolio.slug)}>Copy Link</button>{" "}
+                                                <a href={`/p/${portfolio.slug}`} target="_blank" rel="noopener noreferrer">Open Public</a>
+                                                {shareFeedback.slug === portfolio.slug && <span role="status"> {shareFeedback.message}</span>}
+                                        </p>
+                                    )}
 
 
                                     <div>
@@ -479,14 +537,9 @@ function Dashboard() {
                                         {/* Generate */}
 
                                         <button
-                                            onClick={() =>
-                                                handleGenerate(
-                                                    portfolio._id
-                                                )
-                                            }
+                                            onClick={() => handleGenerate(portfolio)}
                                             disabled={
-                                                generatingId ===
-                                                portfolio._id
+                                                generatingId !== null
                                             }
                                         >
                                             {

@@ -158,8 +158,83 @@ const getCurrentUser = async (req, res) => {
     }
 };
 
+const updateProfile = async (req, res) => {
+    const body = req.body || {};
+    const updates = {};
+
+    if (Object.prototype.hasOwnProperty.call(body, "name")) {
+        if (typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 100) {
+            return res.status(400).json({ message: "Name is required and must be 100 characters or fewer" });
+        }
+        updates.name = body.name.trim();
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "email")) {
+        const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+        if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({ message: "Enter a valid email address" });
+        }
+        updates.email = email;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "avatar")) {
+        const avatar = typeof body.avatar === "string" ? body.avatar.trim() : null;
+        if (avatar === null || avatar.length > 2048) {
+            return res.status(400).json({ message: "Avatar must be a valid HTTP or HTTPS URL" });
+        }
+        if (avatar) {
+            let safeUrl = false;
+            try {
+                const parsed = new URL(avatar);
+                safeUrl = ["http:", "https:"].includes(parsed.protocol) && Boolean(parsed.hostname);
+            } catch {
+                safeUrl = false;
+            }
+            if (!safeUrl) {
+                return res.status(400).json({ message: "Avatar must be a valid HTTP or HTTPS URL" });
+            }
+        }
+        updates.avatar = avatar;
+    }
+
+    if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "Provide at least one profile field to update" });
+    }
+
+    try {
+        const user = await User.findByIdAndUpdate(
+            req.user.id,
+            { $set: updates },
+            { new: true, runValidators: true, select: "name email avatar credits" }
+        );
+
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        return res.status(200).json({
+            message: "Profile updated successfully",
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                avatar: user.avatar,
+                credits: user.credits
+            }
+        });
+    } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({ message: "An account with this email already exists" });
+        }
+        if (error.name === "ValidationError" || error.name === "CastError") {
+            return res.status(400).json({ message: "Invalid profile information" });
+        }
+        console.error("Update profile error:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+};
+
 module.exports = {
     registerUser,
     loginUser,
-    getCurrentUser
+    getCurrentUser,
+    updateProfile
 };

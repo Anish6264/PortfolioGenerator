@@ -49,6 +49,16 @@ const portfolioSchema = new mongoose.Schema(
             default: "draft"
         },
 
+        slug: {
+            type: String,
+            trim: true,
+            lowercase: true,
+            maxlength: 80,
+            match: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+            unique: true,
+            sparse: true
+        },
+
         primaryColor: {
             type: String,
             default: "#111827",

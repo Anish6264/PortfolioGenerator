@@ -12,6 +12,8 @@ import Builder from "./pages/Builder";
 import Dashboard from "./pages/Dashboard";
 import PortfolioPreview from "./pages/PortfolioPreview";
 import ProtectedRoute from "./components/ProtectedRoute";
+import PublicPortfolio from "./pages/PublicPortfolio";
+import Profile from "./pages/Profile";
 
 
 function App() {
@@ -45,6 +47,8 @@ function App() {
                     path="/templates/:id"
                     element={<TemplatePreview />}
                 />
+
+                <Route path="/p/:slug" element={<PublicPortfolio />} />
 
 
                 {/* Authentication */}
@@ -85,6 +89,8 @@ function App() {
                     path="/dashboard"
                     element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
                 />
+
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
             </Routes>
 

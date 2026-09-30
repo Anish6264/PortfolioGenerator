@@ -36,6 +36,26 @@ const escapeHtml = (value) => String(value)
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 
+const safeExternalUrl = (value) => {
+    if (typeof value !== "string" || !value.trim()) return "";
+    try {
+        const parsed = new URL(value.trim());
+        return ["http:", "https:"].includes(parsed.protocol) ? parsed.href : "";
+    } catch {
+        return "";
+    }
+};
+
+const resolvePortfolioAssetPath = (storedPath) => {
+    if (typeof storedPath !== "string" || !storedPath.trim()) return null;
+    const uploadRoot = path.resolve(__dirname, "../uploads");
+    const resolved = path.resolve(__dirname, "..", storedPath);
+    const relative = path.relative(uploadRoot, resolved);
+    return relative && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
+        ? resolved
+        : null;
+};
+
 const getSafeColor = (value, fallback) =>
     typeof value === "string" && /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(value)
         ? value
@@ -269,7 +289,7 @@ const generateSkillsHTML = (skills) => {
 
             return `
                 <span class="skill">
-                    ${skill}
+                    ${escapeHtml(skill)}
                 </span>
             `;
 
@@ -292,28 +312,28 @@ const generateEducationHTML = (education) => {
                 <div class="education-card">
 
                     <h3>
-                        ${item.degree || ""}
+                        ${escapeHtml(item.degree || "")}
                     </h3>
 
                     <h4>
-                        ${item.institution || ""}
+                        ${escapeHtml(item.institution || "")}
                     </h4>
 
                     <p>
-                        ${item.field || ""}
+                        ${escapeHtml(item.field || "")}
                     </p>
 
                     <p>
-                        ${item.startYear || ""}
+                        ${escapeHtml(item.startYear || "")}
                         -
-                        ${item.endYear || ""}
+                        ${escapeHtml(item.endYear || "")}
                     </p>
 
                     ${
                         item.description
                             ? `
                                 <p>
-                                    ${item.description}
+                                    ${escapeHtml(item.description)}
                                 </p>
                             `
                             : ""
@@ -341,24 +361,24 @@ const generateExperienceHTML = (experience) => {
                 <div class="experience-card">
 
                     <h3>
-                        ${item.role || ""}
+                        ${escapeHtml(item.role || "")}
                     </h3>
 
                     <h4>
-                        ${item.company || ""}
+                        ${escapeHtml(item.company || "")}
                     </h4>
 
                     <p>
-                        ${item.startDate || ""}
+                        ${escapeHtml(item.startDate || "")}
                         -
-                        ${item.endDate || "Present"}
+                        ${escapeHtml(item.endDate || "Present")}
                     </p>
 
                     ${
                         item.description
                             ? `
                                 <p>
-                                    ${item.description}
+                                    ${escapeHtml(item.description)}
                                 </p>
                             `
                             : ""
@@ -393,7 +413,7 @@ const generateProjectsHTML = (projects) => {
 
                         return `
                             <span class="project-tech">
-                                ${technology}
+                                ${escapeHtml(technology)}
                             </span>
                         `;
 
@@ -405,11 +425,13 @@ const generateProjectsHTML = (projects) => {
             // Project Links
             // --------------------------------------
 
+            const liveUrl = safeExternalUrl(project.liveUrl);
+            const githubUrl = safeExternalUrl(project.githubUrl);
             const liveLink =
-                project.liveUrl
+                liveUrl
                     ? `
                         <a
-                            href="${project.liveUrl}"
+                            href="${escapeHtml(liveUrl)}"
                             target="_blank"
                             rel="noopener noreferrer"
                         >
@@ -420,10 +442,10 @@ const generateProjectsHTML = (projects) => {
 
 
             const githubLink =
-                project.githubUrl
+                githubUrl
                     ? `
                         <a
-                            href="${project.githubUrl}"
+                            href="${escapeHtml(githubUrl)}"
                             target="_blank"
                             rel="noopener noreferrer"
                         >
@@ -441,12 +463,12 @@ const generateProjectsHTML = (projects) => {
                 <div class="project-card">
 
                     <h3>
-                        ${project.title || ""}
+                        ${escapeHtml(project.title || "")}
                     </h3>
 
 
                     <p>
-                        ${project.description || ""}
+                        ${escapeHtml(project.description || "")}
                     </p>
 
 
@@ -485,167 +507,50 @@ const generateProjectsHTML = (projects) => {
 // PLACEHOLDER REPLACEMENT
 // ==================================================
 
-const replacePlaceholders = (
-    html,
-    portfolio
-) => {
+const replacePlaceholders = (html, portfolio, imageAvailable, resumeAvailable) => {
+    const personal = portfolio.personal || {};
+    const social = portfolio.social || {};
+    const profileImageForHTML = imageAvailable
+        ? `assets/profile-image${path.extname(personal.profileImage).toLowerCase()}`
+        : "";
+    let updatedHtml = html;
 
-    const personal =
-        portfolio.personal || {};
-
-    const social =
-        portfolio.social || {};
-
-
-    // ----------------------------------------------
-    // Profile image path for generated portfolio
-    // ----------------------------------------------
-
-    let profileImageForHTML = "";
-
-
-    if (
-        personal.profileImage
-    ) {
-
-        const extension =
-            path.extname(
-                personal.profileImage
+    if (!imageAvailable) {
+        updatedHtml = updatedHtml.replace(/<img\b[^>]*src=["']{{profileImage}}["'][^>]*>/gi, "");
+    }
+    if (!resumeAvailable) {
+        updatedHtml = updatedHtml.replace(/<a\b[^>]*href=["']{{resume}}["'][^>]*>[\s\S]*?<\/a>/gi, "");
+    }
+    for (const [key, value] of Object.entries({
+        github: safeExternalUrl(social.github),
+        linkedin: safeExternalUrl(social.linkedin),
+        twitter: safeExternalUrl(social.twitter)
+    })) {
+        if (!value) {
+            updatedHtml = updatedHtml.replace(
+                new RegExp(`<a\\b[^>]*href=["']{{${key}}}["'][^>]*>[\\s\\S]*?<\\/a>`, "gi"),
+                ""
             );
-
-
-        profileImageForHTML =
-            `assets/profile-image${extension}`;
-
+        }
     }
 
-
-    return html
-
-        // ------------------------------------------
-        // Personal
-        // ------------------------------------------
-
-        .replaceAll(
-            "{{name}}",
-            personal.name || ""
-        )
-
-        .replaceAll(
-            "{{title}}",
-            personal.title || ""
-        )
-
-        .replaceAll(
-            "{{email}}",
-            personal.email || ""
-        )
-
-        .replaceAll(
-            "{{phone}}",
-            personal.phone || ""
-        )
-
-        .replaceAll(
-            "{{location}}",
-            personal.location || ""
-        )
-
-        .replaceAll(
-            "{{profileImage}}",
-            profileImageForHTML
-        )
-
-
-        // ------------------------------------------
-        // Introduction
-        // ------------------------------------------
-
-        .replaceAll(
-            "{{shortIntro}}",
-            portfolio.shortIntro || ""
-        )
-
-        .replaceAll(
-            "{{about}}",
-            portfolio.about || ""
-        )
-
-
-        // ------------------------------------------
-        // Skills
-        // ------------------------------------------
-
-        .replaceAll(
-            "{{skills}}",
-            generateSkillsHTML(
-                portfolio.skills || []
-            )
-        )
-
-
-        // ------------------------------------------
-        // Education
-        // ------------------------------------------
-
-        .replaceAll(
-            "{{education}}",
-            generateEducationHTML(
-                portfolio.education || []
-            )
-        )
-
-
-        // ------------------------------------------
-        // Experience
-        // ------------------------------------------
-
-        .replaceAll(
-            "{{experience}}",
-            generateExperienceHTML(
-                portfolio.experience || []
-            )
-        )
-
-
-        // ------------------------------------------
-        // Projects
-        // ------------------------------------------
-
-        .replaceAll(
-            "{{projects}}",
-            generateProjectsHTML(
-                portfolio.projects || []
-            )
-        )
-
-
-        // ------------------------------------------
-        // Social
-        // ------------------------------------------
-
-        .replaceAll(
-            "{{github}}",
-            social.github || ""
-        )
-
-        .replaceAll(
-            "{{linkedin}}",
-            social.linkedin || ""
-        )
-
-        .replaceAll(
-            "{{twitter}}",
-            social.twitter || ""
-        )
-
-        .replaceAll(
-    "{{resume}}",
-    portfolio.resume
-        ? "assets/resume.pdf"
-        : "#"
-);
-
+    return updatedHtml
+        .replaceAll("{{name}}", escapeHtml(personal.name || ""))
+        .replaceAll("{{title}}", escapeHtml(personal.title || ""))
+        .replaceAll("{{email}}", escapeHtml(personal.email || ""))
+        .replaceAll("{{phone}}", escapeHtml(personal.phone || ""))
+        .replaceAll("{{location}}", escapeHtml(personal.location || ""))
+        .replaceAll("{{profileImage}}", profileImageForHTML)
+        .replaceAll("{{shortIntro}}", escapeHtml(portfolio.shortIntro || ""))
+        .replaceAll("{{about}}", escapeHtml(portfolio.about || ""))
+        .replaceAll("{{skills}}", generateSkillsHTML(portfolio.skills || []))
+        .replaceAll("{{education}}", generateEducationHTML(portfolio.education || []))
+        .replaceAll("{{experience}}", generateExperienceHTML(portfolio.experience || []))
+        .replaceAll("{{projects}}", generateProjectsHTML(portfolio.projects || []))
+        .replaceAll("{{github}}", escapeHtml(safeExternalUrl(social.github)))
+        .replaceAll("{{linkedin}}", escapeHtml(safeExternalUrl(social.linkedin)))
+        .replaceAll("{{twitter}}", escapeHtml(safeExternalUrl(social.twitter)))
+        .replaceAll("{{resume}}", resumeAvailable ? "assets/resume.pdf" : "#");
 };
 
 
@@ -655,7 +560,8 @@ const replacePlaceholders = (
 
 const generatePortfolio = async (
     portfolioId,
-    userId
+    userId,
+    requiredState = {}
 ) => {
 
 
@@ -668,16 +574,16 @@ const generatePortfolio = async (
 
             _id: portfolioId,
 
-            user: userId
+            user: userId,
+            ...requiredState
 
         });
 
 
     if (!portfolio) {
-
-        throw new Error(
-            "Portfolio not found"
-        );
+        const error = new Error("Portfolio not found");
+        error.status = 404;
+        throw error;
 
     }
 
@@ -794,22 +700,17 @@ const generatePortfolio = async (
         portfolio.personal?.profileImage
     ) {
 
-        profileImagePath =
-            path.join(
+        profileImagePath = resolvePortfolioAssetPath(portfolio.personal.profileImage);
 
-                __dirname,
-
-                "..",
-
-                portfolio.personal.profileImage
-
-            );
+        if (!profileImagePath || ![".jpg", ".jpeg", ".png", ".webp"].includes(path.extname(profileImagePath).toLowerCase())) {
+            profileImagePath = null;
+        }
 
 
         if (
-            !fs.existsSync(
+            (!profileImagePath || !fs.existsSync(
                 profileImagePath
-            )
+            ))
         ) {
 
             console.warn(
@@ -836,22 +737,17 @@ const generatePortfolio = async (
         portfolio.resume
     ) {
 
-        resumePath =
-            path.join(
+        resumePath = resolvePortfolioAssetPath(portfolio.resume);
 
-                __dirname,
-
-                "..",
-
-                portfolio.resume
-
-            );
+        if (!resumePath || path.extname(resumePath).toLowerCase() !== ".pdf") {
+            resumePath = null;
+        }
 
 
         if (
-            !fs.existsSync(
+            (!resumePath || !fs.existsSync(
                 resumePath
-            )
+            ))
         ) {
 
             console.warn(
@@ -874,7 +770,7 @@ const generatePortfolio = async (
         : "";
 
     const html = applyPortfolioSettings(
-        replacePlaceholders(htmlTemplate, portfolio),
+        replacePlaceholders(htmlTemplate, portfolio, Boolean(profileImagePath), Boolean(resumePath)),
         portfolio,
         imageAsset
     );
@@ -909,8 +805,29 @@ const generatePortfolio = async (
 // EXPORT
 // ==================================================
 
+const preparePreviewHtml = (result, { inlineAssets = false } = {}) => {
+    let html = result.html;
+    const cssTag = `<style>${result.css}</style>`;
+    const jsTag = `<script>${result.js}</script>`;
+    html = html.replace(/<link\b[^>]*href=["']style\.css["'][^>]*>/i, cssTag);
+    html = html.replace(/<script\b[^>]*src=["']script\.js["'][^>]*><\/script>/i, jsTag);
+    if (inlineAssets && result.profileImagePath) {
+        const extension = path.extname(result.profileImagePath).toLowerCase();
+        const mime = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp" }[extension];
+        if (mime) {
+            const dataUrl = `data:${mime};base64,${fs.readFileSync(result.profileImagePath).toString("base64")}`;
+            html = html.replaceAll(`assets/profile-image${extension}`, dataUrl);
+        }
+    }
+    if (inlineAssets && result.resumePath) {
+        const dataUrl = `data:application/pdf;base64,${fs.readFileSync(result.resumePath).toString("base64")}`;
+        html = html.replaceAll("assets/resume.pdf", dataUrl);
+    }
+    return html;
+};
+
 module.exports = {
-
-    generatePortfolio
-
+    generatePortfolio,
+    preparePreviewHtml,
+    resolvePortfolioAssetPath
 };

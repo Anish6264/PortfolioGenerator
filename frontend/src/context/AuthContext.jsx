@@ -80,6 +80,10 @@ export const AuthProvider = ({ children }) => {
         return response.data.user;
     };
 
+    const updateUser = (updatedUser) => {
+        setUser(updatedUser);
+    };
+
     return (
         <AuthContext.Provider
             value={{
@@ -88,6 +92,7 @@ export const AuthProvider = ({ children }) => {
                 login,
                 logout,
                 refreshUser,
+                updateUser,
                 isAuthenticated: !!token,
                 isAuthLoading
             }}

@@ -6,6 +6,7 @@ const templateRoutes = require("./routes/template.routes");
 const portfolioRoutes = require("./routes/portfolio.routes");
 const generatorRoutes = require("./routes/generator.routes");
 const uploadRoutes = require("./routes/upload.routes");
+const publicPortfolioRoutes = require("./routes/publicPortfolio.routes");
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/portfolios", portfolioRoutes);
+app.use("/api/public/portfolios", publicPortfolioRoutes);
 app.use("/api/generator", generatorRoutes);
 app.use("/api/uploads", uploadRoutes);
 

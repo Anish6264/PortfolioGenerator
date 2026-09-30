@@ -1,4 +1,8 @@
 const Portfolio = require("../models/Portfolio");
+const {
+    createPortfolioWithUniqueSlug,
+    updatePortfolioWithUniqueSlug
+} = require("../utils/portfolioSlug");
 
 const editablePortfolioFields = [
     "template",
@@ -262,6 +266,10 @@ const sendPortfolioError = (res, error, operation) => {
         });
     }
 
+    if (error.code === 11000) {
+        return res.status(409).json({ message: "Portfolio slug already exists" });
+    }
+
     return res.status(500).json({
         message: "Server error"
     });
@@ -276,11 +284,11 @@ const createPortfolio = async (req, res) => {
             return res.status(400).json({ message: validationError });
         }
 
-        const portfolio = await Portfolio.create({
+        const portfolio = await createPortfolioWithUniqueSlug(Portfolio, {
             ...portfolioData,
             status: "draft",
             user: req.user.id
-        });
+        }, portfolioData.personal.name || portfolioData.personal.title);
 
         return res.status(201).json({
             message: "Portfolio created successfully",
@@ -403,7 +411,7 @@ const duplicatePortfolio = async (req, res) => {
             });
         }
 
-        const duplicate = await Portfolio.create({
+        const duplicateData = {
             user: req.user.id,
             template: source.template,
             personal: clonePortfolioContent(source.personal),
@@ -424,8 +432,14 @@ const duplicatePortfolio = async (req, res) => {
             sectionOrder: source.sectionOrder,
             customSections: clonePortfolioContent(source.customSections),
             seoTitle: source.seoTitle,
-            seoDescription: source.seoDescription
-        });
+            seoDescription: source.seoDescription,
+            status: "draft"
+        };
+        const duplicate = await createPortfolioWithUniqueSlug(
+            Portfolio,
+            duplicateData,
+            source.personal?.name || source.personal?.title
+        );
         await duplicate.populate("template", "name category");
 
         return res.status(201).json({
@@ -450,14 +464,24 @@ const updatePortfolioStatus = async (req, res) => {
             });
         }
 
-        const portfolio = await Portfolio.findOneAndUpdate(
-            {
-                _id: req.params.id,
-                user: req.user.id
-            },
-            { status },
-            { new: true, runValidators: true }
-        );
+        const filter = { _id: req.params.id, user: req.user.id };
+        const existing = await Portfolio.findOne(filter);
+        if (!existing) {
+            return res.status(404).json({ message: "Portfolio not found" });
+        }
+
+        const portfolio = status === "published" && !existing.slug
+            ? await updatePortfolioWithUniqueSlug(
+                Portfolio,
+                filter,
+                { status },
+                existing.personal?.name || existing.personal?.title
+            )
+            : await Portfolio.findOneAndUpdate(
+                filter,
+                { status },
+                { new: true, runValidators: true }
+            );
 
         if (!portfolio) {
             return res.status(404).json({
