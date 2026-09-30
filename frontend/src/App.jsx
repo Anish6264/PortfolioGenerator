@@ -11,6 +11,7 @@ import Signup from "./pages/Signup";
 import Builder from "./pages/Builder";
 import Dashboard from "./pages/Dashboard";
 import PortfolioPreview from "./pages/PortfolioPreview";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 
 function App() {
@@ -61,28 +62,28 @@ function App() {
                 {/* Portfolio Builder - Create */}
                 <Route
                     path="/builder"
-                    element={<Builder />}
+                    element={<ProtectedRoute><Builder /></ProtectedRoute>}
                 />
 
 
                 {/* Portfolio Builder - Edit */}
                 <Route
                     path="/builder/edit/:id"
-                    element={<Builder />}
+                    element={<ProtectedRoute><Builder /></ProtectedRoute>}
                 />
 
 
                 {/* Portfolio Preview */}
                 <Route
                     path="/portfolio-preview/:id"
-                    element={<PortfolioPreview />}
+                    element={<ProtectedRoute><PortfolioPreview /></ProtectedRoute>}
                 />
 
 
                 {/* Dashboard */}
                 <Route
                     path="/dashboard"
-                    element={<Dashboard />}
+                    element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
                 />
 
             </Routes>
