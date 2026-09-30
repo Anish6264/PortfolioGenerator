@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import api from "../services/api";
+import { useAuth } from "../hooks/useAuth";
 
 const categoryLabels = {
     developer: "Software Developer",
@@ -16,16 +17,42 @@ const categoryLabels = {
 };
 
 function Templates() {
+    const navigate = useNavigate();
+    const { user, isAuthenticated, isAuthLoading } = useAuth();
 
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [accessMessage, setAccessMessage] = useState("");
 
     const [searchParams] = useSearchParams();
 
     const profession =
         searchParams.get("profession") ||
         searchParams.get("category");
+
+    const handleUseTemplate = (template) => {
+        setAccessMessage("");
+        const builderPath = `/builder?template=${encodeURIComponent(template._id)}`;
+
+        if (isAuthLoading) {
+            setAccessMessage("Your account is still loading. Please try again shortly.");
+            return;
+        }
+
+        if (!isAuthenticated) {
+            navigate("/login", { state: { from: builderPath } });
+            return;
+        }
+
+        const cost = Math.max(1, template.creditCost || 0);
+        if ((user?.credits ?? 0) < cost) {
+            setAccessMessage(`You need ${cost} credits to use this template.`);
+            return;
+        }
+
+        navigate(builderPath);
+    };
 
     useEffect(() => {
 
@@ -76,6 +103,8 @@ function Templates() {
                     : "Choose Your Template"}
             </h1>
 
+            {accessMessage && <p role="status">{accessMessage}</p>}
+
             {templates.length === 0 ? (
 
                 <p>
@@ -89,6 +118,13 @@ function Templates() {
                     {templates.map((template) => (
 
                         <div key={template._id}>
+
+                            {template.thumbnail && (
+                                <img
+                                    src={template.thumbnail}
+                                    alt={`${template.name} template preview`}
+                                />
+                            )}
 
                             <h2>
                                 {template.name}
@@ -105,6 +141,12 @@ function Templates() {
                                 }
                             </p>
 
+                            <p>
+                                {template.isPremium ? "Premium" : "Free"}
+                                {" · "}
+                                {Math.max(1, template.creditCost || 0)} credit{Math.max(1, template.creditCost || 0) === 1 ? "" : "s"} per generation
+                            </p>
+
                             <Link
                                 to={`/templates/${template._id}${profession
                                     ? `?profession=${encodeURIComponent(profession)}`
@@ -112,6 +154,15 @@ function Templates() {
                             >
                                 Preview
                             </Link>
+
+                            {" "}
+
+                            <button
+                                type="button"
+                                onClick={() => handleUseTemplate(template)}
+                            >
+                                Use This Template
+                            </button>
 
                         </div>
 

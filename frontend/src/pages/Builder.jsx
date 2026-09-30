@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     useNavigate,
     useParams,
@@ -6,6 +6,28 @@ import {
 } from "react-router-dom";
 
 import api from "../services/api";
+
+const supportedSections = [
+    "about",
+    "education",
+    "experience",
+    "skills",
+    "projects",
+    "contact"
+];
+
+const defaultSectionVisibility = Object.fromEntries(
+    supportedSections.map((section) => [section, true])
+);
+
+const supportedFonts = [
+    "Arial",
+    "Inter",
+    "Poppins",
+    "Roboto",
+    "Open Sans",
+    "Merriweather"
+];
 
 function Builder() {
 
@@ -48,6 +70,11 @@ function Builder() {
     const [loading, setLoading] = useState(false);
 
     const [error, setError] = useState("");
+    const [autosaveStatus, setAutosaveStatus] = useState("Saved");
+    const [portfolioLoaded, setPortfolioLoaded] = useState(false);
+    const autosaveTimer = useRef(null);
+    const autosaveRequest = useRef(null);
+    const lastSavedSnapshot = useRef("");
 
 
     // --------------------------------------------------
@@ -119,7 +146,18 @@ function Builder() {
             github: "",
             linkedin: "",
             twitter: ""
-        }
+        },
+
+        primaryColor: "#111827",
+        secondaryColor: "#6b7280",
+        backgroundColor: "#ffffff",
+        textColor: "#1f2937",
+        fontFamily: "Arial",
+        sectionVisibility: { ...defaultSectionVisibility },
+        sectionOrder: [],
+        customSections: [],
+        seoTitle: "",
+        seoDescription: ""
     });
 
 
@@ -173,6 +211,7 @@ function Builder() {
 
             try {
 
+                setPortfolioLoaded(false);
                 setLoading(true);
 
                 const response = await api.get(
@@ -188,7 +227,7 @@ function Builder() {
                 );
 
 
-                setFormData({
+                const loadedFormData = {
 
                     personal: {
 
@@ -288,8 +327,35 @@ function Builder() {
                         twitter:
                             portfolio.social?.twitter ||
                             ""
-                    }
+                    },
+
+                    primaryColor: portfolio.primaryColor || "#111827",
+                    secondaryColor: portfolio.secondaryColor || "#6b7280",
+                    backgroundColor: portfolio.backgroundColor || "#ffffff",
+                    textColor: portfolio.textColor || "#1f2937",
+                    fontFamily: supportedFonts.includes(portfolio.fontFamily)
+                        ? portfolio.fontFamily
+                        : "Arial",
+                    sectionVisibility: {
+                        ...defaultSectionVisibility,
+                        ...(portfolio.sectionVisibility || {})
+                    },
+                    sectionOrder: Array.isArray(portfolio.sectionOrder)
+                        ? portfolio.sectionOrder
+                        : [],
+                    customSections: Array.isArray(portfolio.customSections)
+                        ? portfolio.customSections
+                        : [],
+                    seoTitle: portfolio.seoTitle || "",
+                    seoDescription: portfolio.seoDescription || ""
+                };
+
+                setFormData(loadedFormData);
+                lastSavedSnapshot.current = JSON.stringify({
+                    ...loadedFormData,
+                    template: portfolio.template?._id || portfolio.template
                 });
+                setPortfolioLoaded(true);
 
             } catch (error) {
 
@@ -309,6 +375,60 @@ function Builder() {
         fetchPortfolio();
 
     }, [id, isEditMode]);
+
+    useEffect(() => {
+        if (
+            !isEditMode ||
+            !portfolioLoaded ||
+            loading ||
+            uploadingFiles
+        ) {
+            return undefined;
+        }
+
+        const portfolioData = {
+            ...formData,
+            template: selectedTemplateId
+        };
+        const snapshot = JSON.stringify(portfolioData);
+
+        if (snapshot === lastSavedSnapshot.current) {
+            return undefined;
+        }
+
+        setAutosaveStatus("Saving...");
+        autosaveTimer.current = setTimeout(() => {
+            const request = (autosaveRequest.current || Promise.resolve())
+                .catch(() => {})
+                .then(() => api.put(`/portfolios/${id}`, portfolioData));
+            autosaveRequest.current = request;
+
+            request
+                .then(() => {
+                    lastSavedSnapshot.current = snapshot;
+                    setAutosaveStatus("Saved");
+                })
+                .catch((autosaveError) => {
+                    console.error("Portfolio autosave failed:", autosaveError);
+                    setAutosaveStatus("Autosave failed");
+                })
+                .finally(() => {
+                    if (autosaveRequest.current === request) {
+                        autosaveRequest.current = null;
+                    }
+                });
+        }, 900);
+
+        return () => clearTimeout(autosaveTimer.current);
+    }, [
+        formData,
+        id,
+        isEditMode,
+        loading,
+        portfolioLoaded,
+        selectedTemplateId,
+        uploadingFiles
+    ]);
 
 
     // ==================================================
@@ -348,6 +468,68 @@ function Builder() {
             [name]: value
         }));
     };
+
+    const handleSectionVisibilityChange = (section, visible) => {
+        setFormData((previous) => ({
+            ...previous,
+            sectionVisibility: {
+                ...previous.sectionVisibility,
+                [section]: visible
+            }
+        }));
+    };
+
+    const moveSection = (index, offset) => {
+        setFormData((previous) => {
+            const sectionOrder = previous.sectionOrder.length
+                ? [...previous.sectionOrder]
+                : [...supportedSections];
+            const destination = index + offset;
+
+            if (destination < 0 || destination >= sectionOrder.length) {
+                return previous;
+            }
+
+            [sectionOrder[index], sectionOrder[destination]] =
+                [sectionOrder[destination], sectionOrder[index]];
+
+            return { ...previous, sectionOrder };
+        });
+    };
+
+    const updateCustomSection = (index, field, value) => {
+        setFormData((previous) => ({
+            ...previous,
+            customSections: previous.customSections.map((section, sectionIndex) =>
+                sectionIndex === index
+                    ? { ...section, [field]: value }
+                    : section
+            )
+        }));
+    };
+
+    const addCustomSection = () => {
+        setFormData((previous) => ({
+            ...previous,
+            customSections: [
+                ...previous.customSections,
+                { title: "", content: "" }
+            ]
+        }));
+    };
+
+    const removeCustomSection = (indexToRemove) => {
+        setFormData((previous) => ({
+            ...previous,
+            customSections: previous.customSections.filter(
+                (_, index) => index !== indexToRemove
+            )
+        }));
+    };
+
+    const displayedSectionOrder = formData.sectionOrder.length
+        ? formData.sectionOrder
+        : supportedSections;
 
 
     // ==================================================
@@ -912,6 +1094,8 @@ function Builder() {
 
         event.preventDefault();
 
+        clearTimeout(autosaveTimer.current);
+
 
         if (!selectedTemplateId) {
 
@@ -929,6 +1113,10 @@ function Builder() {
 
 
         try {
+
+            if (autosaveRequest.current) {
+                await autosaveRequest.current.catch(() => {});
+            }
 
             const portfolioData = {
 
@@ -964,6 +1152,9 @@ function Builder() {
 
             const savedPortfolio =
                 response.data.portfolio;
+
+            lastSavedSnapshot.current = JSON.stringify(portfolioData);
+            setAutosaveStatus("Saved");
 
 
             const portfolioId =
@@ -1111,6 +1302,10 @@ function Builder() {
                 </p>
             )}
 
+            {isEditMode && (
+                <p role="status">Autosave: {autosaveStatus}</p>
+            )}
+
 
             {isEditMode && (
                 <section>
@@ -1154,6 +1349,172 @@ function Builder() {
             )}
 
             <form onSubmit={handleSubmit}>
+
+                <section>
+                    <h2>Portfolio Customization</h2>
+
+                    <div>
+                        <label>
+                            Primary color{" "}
+                            <input
+                                type="color"
+                                value={formData.primaryColor}
+                                onChange={(event) => handleBasicChange({
+                                    target: { name: "primaryColor", value: event.target.value }
+                                })}
+                            />
+                        </label>
+                    </div>
+
+                    <div>
+                        <label>
+                            Secondary color{" "}
+                            <input
+                                type="color"
+                                value={formData.secondaryColor}
+                                onChange={(event) => handleBasicChange({
+                                    target: { name: "secondaryColor", value: event.target.value }
+                                })}
+                            />
+                        </label>
+                    </div>
+
+                    <div>
+                        <label>
+                            Background color{" "}
+                            <input
+                                type="color"
+                                value={formData.backgroundColor}
+                                onChange={(event) => handleBasicChange({
+                                    target: { name: "backgroundColor", value: event.target.value }
+                                })}
+                            />
+                        </label>
+                    </div>
+
+                    <div>
+                        <label>
+                            Text color{" "}
+                            <input
+                                type="color"
+                                value={formData.textColor}
+                                onChange={(event) => handleBasicChange({
+                                    target: { name: "textColor", value: event.target.value }
+                                })}
+                            />
+                        </label>
+                    </div>
+
+                    <label>
+                        Font{" "}
+                        <select
+                            name="fontFamily"
+                            value={formData.fontFamily}
+                            onChange={handleBasicChange}
+                        >
+                            {supportedFonts.map((font) => (
+                                <option key={font} value={font}>{font}</option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <h3>Visible sections</h3>
+                    {supportedSections.map((section) => (
+                        <label key={section}>
+                            <input
+                                type="checkbox"
+                                checked={formData.sectionVisibility[section] !== false}
+                                onChange={(event) => handleSectionVisibilityChange(
+                                    section,
+                                    event.target.checked
+                                )}
+                            />
+                            {section.charAt(0).toUpperCase() + section.slice(1)}
+                        </label>
+                    ))}
+
+                    <h3>Section order</h3>
+                    <ol>
+                        {displayedSectionOrder.map((section, index) => (
+                            <li key={section}>
+                                {section.charAt(0).toUpperCase() + section.slice(1)}{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => moveSection(index, -1)}
+                                    disabled={index === 0}
+                                    aria-label={`Move ${section} up`}
+                                >
+                                    Move up
+                                </button>{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => moveSection(index, 1)}
+                                    disabled={index === displayedSectionOrder.length - 1}
+                                    aria-label={`Move ${section} down`}
+                                >
+                                    Move down
+                                </button>
+                            </li>
+                        ))}
+                    </ol>
+
+                    <h3>Custom sections</h3>
+                    {formData.customSections.map((section, index) => (
+                        <div key={index}>
+                            <input
+                                type="text"
+                                value={section.title}
+                                maxLength={80}
+                                placeholder="Section title"
+                                onChange={(event) => updateCustomSection(
+                                    index,
+                                    "title",
+                                    event.target.value
+                                )}
+                            />
+                            <textarea
+                                value={section.content}
+                                maxLength={4000}
+                                placeholder="Section content"
+                                onChange={(event) => updateCustomSection(
+                                    index,
+                                    "content",
+                                    event.target.value
+                                )}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => removeCustomSection(index)}
+                            >
+                                Remove section
+                            </button>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={addCustomSection}
+                        disabled={formData.customSections.length >= 10}
+                    >
+                        Add custom section
+                    </button>
+
+                    <h3>Search and social preview</h3>
+                    <input
+                        name="seoTitle"
+                        type="text"
+                        value={formData.seoTitle}
+                        maxLength={70}
+                        placeholder="SEO title (optional)"
+                        onChange={handleBasicChange}
+                    />
+                    <textarea
+                        name="seoDescription"
+                        value={formData.seoDescription}
+                        maxLength={200}
+                        placeholder="SEO description (optional)"
+                        onChange={handleBasicChange}
+                    />
+                </section>
 
 
                 {/* =====================================

@@ -10,8 +10,39 @@ const editablePortfolioFields = [
     "experience",
     "projects",
     "social",
-    "resume"
+    "resume",
+    "primaryColor",
+    "secondaryColor",
+    "backgroundColor",
+    "textColor",
+    "fontFamily",
+    "sectionVisibility",
+    "sectionOrder",
+    "customSections",
+    "seoTitle",
+    "seoDescription"
 ];
+
+const supportedSections = [
+    "about",
+    "education",
+    "experience",
+    "skills",
+    "projects",
+    "contact"
+];
+
+const supportedFonts = [
+    "Arial",
+    "Inter",
+    "Poppins",
+    "Roboto",
+    "Open Sans",
+    "Merriweather"
+];
+
+const isValidColor = (value) =>
+    typeof value === "string" && /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(value);
 
 const isObject = (value) =>
     value !== null && typeof value === "object" && !Array.isArray(value);
@@ -32,6 +63,29 @@ const trimStrings = (value) => {
     }
 
     return value;
+};
+
+const clonePortfolioContent = (value) => {
+    if (Array.isArray(value)) {
+        return value.map(clonePortfolioContent);
+    }
+
+    const plainValue =
+        value && typeof value.toObject === "function"
+            ? value.toObject({ depopulate: true })
+            : value;
+
+    if (plainValue && typeof plainValue === "object") {
+        return Object.fromEntries(
+            Object.entries(plainValue)
+                .filter(([key]) =>
+                    !["_id", "createdAt", "updatedAt", "__v", "user"].includes(key)
+                )
+                .map(([key, nestedValue]) => [key, clonePortfolioContent(nestedValue)])
+        );
+    }
+
+    return plainValue;
 };
 
 const validatePortfolioData = (data, partial = false) => {
@@ -121,6 +175,79 @@ const validatePortfolioData = (data, partial = false) => {
         }
     }
 
+    for (const field of ["primaryColor", "secondaryColor", "backgroundColor", "textColor"]) {
+        if (
+            Object.prototype.hasOwnProperty.call(data, field) &&
+            !isValidColor(data[field])
+        ) {
+            return `${field} must be a valid hex color`;
+        }
+    }
+
+    if (
+        Object.prototype.hasOwnProperty.call(data, "fontFamily") &&
+        !supportedFonts.includes(data.fontFamily)
+    ) {
+        return "fontFamily is not supported";
+    }
+
+    if (Object.prototype.hasOwnProperty.call(data, "sectionVisibility")) {
+        if (!isObject(data.sectionVisibility)) {
+            return "sectionVisibility must be an object";
+        }
+
+        for (const [section, visible] of Object.entries(data.sectionVisibility)) {
+            if (!supportedSections.includes(section) || typeof visible !== "boolean") {
+                return "sectionVisibility contains an invalid section";
+            }
+        }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(data, "sectionOrder")) {
+        if (
+            !Array.isArray(data.sectionOrder) ||
+            data.sectionOrder.length > supportedSections.length ||
+            data.sectionOrder.some((section) => !supportedSections.includes(section)) ||
+            new Set(data.sectionOrder).size !== data.sectionOrder.length
+        ) {
+            return "sectionOrder contains invalid or duplicate sections";
+        }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(data, "customSections")) {
+        if (!Array.isArray(data.customSections) || data.customSections.length > 10) {
+            return "customSections must be an array of at most 10 sections";
+        }
+
+        for (const section of data.customSections) {
+            if (
+                !isObject(section) ||
+                Object.keys(section).some((key) => !["title", "content"].includes(key)) ||
+                typeof section.title !== "string" ||
+                !section.title.trim() ||
+                section.title.length > 80 ||
+                typeof section.content !== "string" ||
+                section.content.length > 4000
+            ) {
+                return "Each custom section needs a title and content within the allowed limits";
+            }
+        }
+    }
+
+    if (
+        Object.prototype.hasOwnProperty.call(data, "seoTitle") &&
+        (typeof data.seoTitle !== "string" || data.seoTitle.length > 70)
+    ) {
+        return "seoTitle must be 70 characters or fewer";
+    }
+
+    if (
+        Object.prototype.hasOwnProperty.call(data, "seoDescription") &&
+        (typeof data.seoDescription !== "string" || data.seoDescription.length > 200)
+    ) {
+        return "seoDescription must be 200 characters or fewer";
+    }
+
     return null;
 };
 
@@ -151,6 +278,7 @@ const createPortfolio = async (req, res) => {
 
         const portfolio = await Portfolio.create({
             ...portfolioData,
+            status: "draft",
             user: req.user.id
         });
 
@@ -258,6 +386,96 @@ const updatePortfolio = async (req, res) => {
     }
 };
 
+const duplicatePortfolio = async (req, res) => {
+    try {
+        if (!isValidPortfolioId(req.params.id)) {
+            return res.status(400).json({ message: "Invalid portfolio ID" });
+        }
+
+        const source = await Portfolio.findOne({
+            _id: req.params.id,
+            user: req.user.id
+        });
+
+        if (!source) {
+            return res.status(404).json({
+                message: "Portfolio not found"
+            });
+        }
+
+        const duplicate = await Portfolio.create({
+            user: req.user.id,
+            template: source.template,
+            personal: clonePortfolioContent(source.personal),
+            shortIntro: source.shortIntro,
+            about: source.about,
+            skills: clonePortfolioContent(source.skills),
+            education: clonePortfolioContent(source.education),
+            experience: clonePortfolioContent(source.experience),
+            projects: clonePortfolioContent(source.projects),
+            social: clonePortfolioContent(source.social),
+            resume: source.resume,
+            primaryColor: source.primaryColor,
+            secondaryColor: source.secondaryColor,
+            backgroundColor: source.backgroundColor,
+            textColor: source.textColor,
+            fontFamily: source.fontFamily,
+            sectionVisibility: clonePortfolioContent(source.sectionVisibility),
+            sectionOrder: source.sectionOrder,
+            customSections: clonePortfolioContent(source.customSections),
+            seoTitle: source.seoTitle,
+            seoDescription: source.seoDescription
+        });
+        await duplicate.populate("template", "name category");
+
+        return res.status(201).json({
+            message: "Portfolio duplicated successfully",
+            portfolio: duplicate
+        });
+    } catch (error) {
+        return sendPortfolioError(res, error, "Duplicate portfolio");
+    }
+};
+
+const updatePortfolioStatus = async (req, res) => {
+    try {
+        if (!isValidPortfolioId(req.params.id)) {
+            return res.status(400).json({ message: "Invalid portfolio ID" });
+        }
+
+        const { status } = req.body || {};
+        if (status !== "draft" && status !== "published") {
+            return res.status(400).json({
+                message: "Status must be draft or published"
+            });
+        }
+
+        const portfolio = await Portfolio.findOneAndUpdate(
+            {
+                _id: req.params.id,
+                user: req.user.id
+            },
+            { status },
+            { new: true, runValidators: true }
+        );
+
+        if (!portfolio) {
+            return res.status(404).json({
+                message: "Portfolio not found"
+            });
+        }
+
+        await portfolio.populate("template", "name category");
+
+        return res.status(200).json({
+            message: "Portfolio status updated successfully",
+            portfolio
+        });
+    } catch (error) {
+        return sendPortfolioError(res, error, "Update portfolio status");
+    }
+};
+
 const deletePortfolio = async (req, res) => {
     try {
         if (!isValidPortfolioId(req.params.id)) {
@@ -292,5 +510,7 @@ module.exports = {
     getMyPortfolios,
     getPortfolioById,
     updatePortfolio,
+    duplicatePortfolio,
+    updatePortfolioStatus,
     deletePortfolio
 };

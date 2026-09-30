@@ -35,7 +35,12 @@ const userSchema = new mongoose.Schema(
 
         credits: {
             type: Number,
-            default: 0
+            default: 5,
+            min: 0,
+            validate: {
+                validator: Number.isInteger,
+                message: "Credits must be a non-negative integer"
+            }
         }
     },
     {

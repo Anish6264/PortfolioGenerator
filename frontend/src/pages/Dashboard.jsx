@@ -10,7 +10,8 @@ function Dashboard() {
 
     const {
         user,
-        logout
+        logout,
+        refreshUser
     } = useAuth();
 
     const [portfolios, setPortfolios] = useState([]);
@@ -21,6 +22,34 @@ function Dashboard() {
 
     const [generatingId, setGeneratingId] =
         useState(null);
+
+    const [searchTerm, setSearchTerm] = useState("");
+
+    const [statusFilter, setStatusFilter] = useState("all");
+
+    const [templateFilter, setTemplateFilter] = useState("all");
+
+    const [updatingId, setUpdatingId] = useState(null);
+
+    const templateNames = Array.from(new Set(
+        portfolios
+            .map((portfolio) => portfolio.template?.name)
+            .filter(Boolean)
+    ));
+
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const filteredPortfolios = portfolios.filter((portfolio) => {
+        const matchesSearch = !normalizedSearch || [
+            portfolio.personal?.name,
+            portfolio.personal?.title
+        ].some((value) => value?.toLowerCase().includes(normalizedSearch));
+        const matchesStatus = statusFilter === "all" ||
+            (portfolio.status || "draft") === statusFilter;
+        const matchesTemplate = templateFilter === "all" ||
+            portfolio.template?.name === templateFilter;
+
+        return matchesSearch && matchesStatus && matchesTemplate;
+    });
 
 
     // --------------------------------------------------
@@ -101,6 +130,53 @@ function Dashboard() {
         }
     };
 
+    const handleDuplicate = async (portfolioId) => {
+        try {
+            setError("");
+            const response = await api.post(
+                `/portfolios/${portfolioId}/duplicate`
+            );
+            setPortfolios((previous) => [
+                response.data.portfolio,
+                ...previous
+            ]);
+        } catch (error) {
+            console.error(error);
+            setError(
+                error.response?.data?.message ||
+                "Failed to duplicate portfolio"
+            );
+        }
+    };
+
+    const handleStatusChange = async (portfolio) => {
+        const nextStatus = portfolio.status === "published"
+            ? "draft"
+            : "published";
+
+        try {
+            setUpdatingId(portfolio._id);
+            setError("");
+            const response = await api.patch(
+                `/portfolios/${portfolio._id}/status`,
+                { status: nextStatus }
+            );
+            setPortfolios((previous) => previous.map((item) =>
+                item._id === portfolio._id
+                    ? response.data.portfolio
+                    : item
+            ));
+        } catch (error) {
+            console.error(error);
+            setError(
+                error.response?.data?.message ||
+                "Failed to update portfolio status"
+            );
+        } finally {
+            setUpdatingId(null);
+        }
+    };
+
 
     // --------------------------------------------------
     // Generate and download portfolio
@@ -147,12 +223,20 @@ function Dashboard() {
 
             window.URL.revokeObjectURL(url);
 
+            try {
+                await refreshUser();
+            } catch (refreshError) {
+                console.error("Failed to refresh user data:", refreshError);
+            }
+
         } catch (error) {
 
             console.error(error);
 
             setError(
-                "Failed to generate portfolio"
+                error.response?.status === 402
+                    ? "Insufficient credits"
+                    : "Failed to generate portfolio"
             );
 
         } finally {
@@ -211,6 +295,10 @@ function Dashboard() {
                         Manage your portfolios
                     </p>
 
+                    <p>
+                        Credits: {user?.credits ?? 0}
+                    </p>
+
                 </div>
 
 
@@ -241,6 +329,44 @@ function Dashboard() {
                     My Portfolios
                 </h2>
 
+                <div>
+                    <label>
+                        Search by name or title{" "}
+                        <input
+                            type="search"
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                        />
+                    </label>
+
+                    <label>
+                        Status{" "}
+                        <select
+                            value={statusFilter}
+                            onChange={(event) => setStatusFilter(event.target.value)}
+                        >
+                            <option value="all">All</option>
+                            <option value="draft">Draft</option>
+                            <option value="published">Published</option>
+                        </select>
+                    </label>
+
+                    {templateNames.length > 0 && (
+                        <label>
+                            Template{" "}
+                            <select
+                                value={templateFilter}
+                                onChange={(event) => setTemplateFilter(event.target.value)}
+                            >
+                                <option value="all">All templates</option>
+                                {templateNames.map((name) => (
+                                    <option key={name} value={name}>{name}</option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+                </div>
+
 
                 {error && (
                     <p>{error}</p>
@@ -266,7 +392,7 @@ function Dashboard() {
 
                     <div>
 
-                        {portfolios.map(
+                        {filteredPortfolios.map(
                             (portfolio) => (
 
                                 <article
@@ -302,6 +428,8 @@ function Dashboard() {
                                         }
                                     </p>
 
+                                    <p>Status: {portfolio.status || "draft"}</p>
+
 
                                     <div>
 
@@ -312,6 +440,29 @@ function Dashboard() {
                                         >
                                             Edit
                                         </Link>
+
+                                        {" "}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDuplicate(portfolio._id)}
+                                        >
+                                            Duplicate
+                                        </button>
+
+                                        {" "}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => handleStatusChange(portfolio)}
+                                            disabled={updatingId === portfolio._id}
+                                        >
+                                            {updatingId === portfolio._id
+                                                ? "Updating..."
+                                                : portfolio.status === "published"
+                                                    ? "Unpublish"
+                                                    : "Publish"}
+                                        </button>
 
                                         {" "}
 
@@ -366,6 +517,10 @@ function Dashboard() {
 
                                 </article>
                             )
+                        )}
+
+                        {filteredPortfolios.length === 0 && (
+                            <p>No portfolios match these filters.</p>
                         )}
 
                     </div>

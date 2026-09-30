@@ -7,6 +7,8 @@ const {
     getMyPortfolios,
     getPortfolioById,
     updatePortfolio,
+    duplicatePortfolio,
+    updatePortfolioStatus,
     deletePortfolio
 } = require("../controllers/portfolio.controller");
 
@@ -15,6 +17,10 @@ const router = express.Router();
 router.post("/", protect, createPortfolio);
 
 router.get("/", protect, getMyPortfolios);
+
+router.post("/:id/duplicate", protect, duplicatePortfolio);
+
+router.patch("/:id/status", protect, updatePortfolioStatus);
 
 router.get("/:id", protect, getPortfolioById);
 

@@ -40,7 +40,8 @@ const registerUser = async (req, res) => {
         const user = await User.create({
             name,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            credits: 5
         });
 
         return res.status(201).json({
@@ -48,7 +49,8 @@ const registerUser = async (req, res) => {
             user: {
                 id: user._id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                credits: user.credits
             }
         });
     } catch (error) {

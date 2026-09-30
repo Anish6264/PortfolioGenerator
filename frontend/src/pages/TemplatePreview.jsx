@@ -20,7 +20,8 @@ const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const { isAuthenticated } = useAuth();
+    const { user, isAuthenticated, isAuthLoading } = useAuth();
+    const [accessMessage, setAccessMessage] = useState("");
 
     useEffect(() => {
 
@@ -87,28 +88,39 @@ const navigate = useNavigate();
                 Category: {template.category}
             </p>
 
+            <p>
+                {template.isPremium ? "Premium" : "Free"}
+                {" · "}
+                {Math.max(1, template.creditCost || 0)} credit{Math.max(1, template.creditCost || 0) === 1 ? "" : "s"} per generation
+            </p>
+
+            {accessMessage && <p role="status">{accessMessage}</p>}
+
             <button
-    onClick={() => {
+                onClick={() => {
+                    const builderPath = `/builder?template=${encodeURIComponent(id)}`;
 
-        if (!isAuthenticated) {
+                    if (isAuthLoading) {
+                        setAccessMessage("Your account is still loading. Please try again shortly.");
+                        return;
+                    }
 
-            navigate("/login", {
-                state: {
-                    from: `/builder?template=${encodeURIComponent(id)}`
-                }
-            });
+                    if (!isAuthenticated) {
+                        navigate("/login", { state: { from: builderPath } });
+                        return;
+                    }
 
-            return;
-        }
+                    const cost = Math.max(1, template.creditCost || 0);
+                    if ((user?.credits ?? 0) < cost) {
+                        setAccessMessage(`You need ${cost} credits to use this template.`);
+                        return;
+                    }
 
-        navigate(
-            `/builder?template=${id}`
-        );
-
-    }}
->
-    Use This Template
-</button>
+                    navigate(builderPath);
+                }}
+            >
+                Use This Template
+            </button>
 
             <hr />
 
