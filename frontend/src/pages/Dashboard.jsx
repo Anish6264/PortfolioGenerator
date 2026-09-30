@@ -313,6 +313,14 @@ function Dashboard() {
                                             Edit
                                         </Link>
 
+                                        {" "}
+
+<Link
+    to={`/portfolio-preview/${portfolio._id}`}
+>
+    Preview
+</Link>
+
 
                                         {" "}
 

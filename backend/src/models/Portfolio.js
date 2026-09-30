@@ -14,6 +14,11 @@ const portfolioSchema = new mongoose.Schema(
             required: true
         },
 
+        resume: {
+            type: String,
+            default: ""
+        },
+
         personal: {
             name: {
                 type: String,

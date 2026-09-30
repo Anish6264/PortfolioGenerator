@@ -10,6 +10,8 @@ import Signup from "./pages/Signup";
 
 import Builder from "./pages/Builder";
 import Dashboard from "./pages/Dashboard";
+import PortfolioPreview from "./pages/PortfolioPreview";
+
 
 function App() {
 
@@ -19,7 +21,6 @@ function App() {
             <Routes>
 
                 {/* Home */}
-
                 <Route
                     path="/"
                     element={<Home />}
@@ -27,7 +28,6 @@ function App() {
 
 
                 {/* Profession Selection */}
-
                 <Route
                     path="/professions"
                     element={<Professions />}
@@ -35,7 +35,6 @@ function App() {
 
 
                 {/* Templates */}
-
                 <Route
                     path="/templates"
                     element={<Templates />}
@@ -48,7 +47,6 @@ function App() {
 
 
                 {/* Authentication */}
-
                 <Route
                     path="/login"
                     element={<Login />}
@@ -61,7 +59,6 @@ function App() {
 
 
                 {/* Portfolio Builder - Create */}
-
                 <Route
                     path="/builder"
                     element={<Builder />}
@@ -69,15 +66,20 @@ function App() {
 
 
                 {/* Portfolio Builder - Edit */}
-
                 <Route
                     path="/builder/edit/:id"
                     element={<Builder />}
                 />
 
 
-                {/* Dashboard */}
+                {/* Portfolio Preview */}
+                <Route
+                    path="/portfolio-preview/:id"
+                    element={<PortfolioPreview />}
+                />
 
+
+                {/* Dashboard */}
                 <Route
                     path="/dashboard"
                     element={<Dashboard />}
