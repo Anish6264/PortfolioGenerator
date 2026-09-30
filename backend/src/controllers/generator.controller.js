@@ -7,10 +7,38 @@ const {
     generatePortfolio
 } = require("../services/generator.service");
 
+const isValidPortfolioId = (id) => /^[a-f\d]{24}$/i.test(id || "");
+
+const sendGeneratorError = (res, error, operation) => {
+    console.error(`${operation} error:`, error);
+
+    if (error.status === 404 || error.statusCode === 404) {
+        return res.status(404).json({
+            message: "Portfolio not found"
+        });
+    }
+
+    if (error.name === "ValidationError" || error.name === "CastError") {
+        return res.status(400).json({
+            message: "Invalid portfolio data"
+        });
+    }
+
+    return res.status(500).json({
+        message: "Server error"
+    });
+};
+
 
 const generatePortfolioZip = async (req, res) => {
 
     try {
+
+        if (!isValidPortfolioId(req.params.portfolioId)) {
+            return res.status(400).json({
+                message: "Invalid portfolio ID"
+            });
+        }
 
         const result = await generatePortfolio(
             req.params.portfolioId,
@@ -45,9 +73,15 @@ const generatePortfolioZip = async (req, res) => {
 
 
         archive.on("error", (error) => {
+            console.error("Generate portfolio archive error:", error);
 
-            throw error;
-
+            if (!res.headersSent) {
+                res.status(500).json({
+                    message: "Server error"
+                });
+            } else {
+                res.destroy();
+            }
         });
 
 
@@ -131,23 +165,12 @@ const generatePortfolioZip = async (req, res) => {
 
     } catch (error) {
 
-        console.error(
-            "Generate portfolio error:",
-            error.message
-        );
-
-
         if (!res.headersSent) {
-
-            return res.status(500).json({
-
-                message:
-                    error.message ||
-                    "Server error"
-
-            });
-
+            return sendGeneratorError(res, error, "Generate portfolio");
         }
+
+        console.error("Generate portfolio error:", error);
+        res.destroy();
 
     }
 
@@ -156,6 +179,12 @@ const generatePortfolioZip = async (req, res) => {
 
 const previewPortfolio = async (req, res) => {
     try {
+
+        if (!isValidPortfolioId(req.params.portfolioId)) {
+            return res.status(400).json({
+                message: "Invalid portfolio ID"
+            });
+        }
 
         const result = await generatePortfolio(
             req.params.portfolioId,
@@ -233,20 +262,12 @@ const previewPortfolio = async (req, res) => {
 
     } catch (error) {
 
-        console.error(
-            "Preview portfolio error:",
-            error.message
-        );
-
         if (!res.headersSent) {
-
-            return res.status(500).json({
-                message:
-                    error.message ||
-                    "Failed to preview portfolio"
-            });
-
+            return sendGeneratorError(res, error, "Preview portfolio");
         }
+
+        console.error("Preview portfolio error:", error);
+        res.destroy();
     }
 };
 

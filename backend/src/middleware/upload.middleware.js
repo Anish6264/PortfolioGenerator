@@ -36,27 +36,30 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
 
-    const allowedImageTypes = [
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-    ];
-
     const allowedResumeTypes = [
         "application/pdf"
     ];
 
-    if (
-        allowedImageTypes.includes(file.mimetype) ||
-        allowedResumeTypes.includes(file.mimetype)
-    ) {
+    const extension = path.extname(file.originalname).toLowerCase();
+
+    const isProfileImage =
+        file.fieldname === "profileImage" &&
+        (
+            (file.mimetype === "image/jpeg" && [".jpg", ".jpeg"].includes(extension)) ||
+            (file.mimetype === "image/png" && extension === ".png") ||
+            (file.mimetype === "image/webp" && extension === ".webp")
+        );
+    const isResume =
+        file.fieldname === "resume" &&
+        allowedResumeTypes.includes(file.mimetype) &&
+        extension === ".pdf";
+
+    if (isProfileImage || isResume) {
         cb(null, true);
     } else {
-        cb(
-            new Error(
-                "Only JPG, PNG, WEBP images and PDF files are allowed"
-            )
-        );
+        const error = new Error("Unsupported file type for upload field");
+        error.code = "INVALID_FILE_TYPE";
+        cb(error);
     }
 };
 

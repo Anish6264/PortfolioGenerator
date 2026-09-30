@@ -24,4 +24,26 @@ app.use("/api/portfolios", portfolioRoutes);
 app.use("/api/generator", generatorRoutes);
 app.use("/api/uploads", uploadRoutes);
 
+app.use((error, req, res, next) => {
+    if (error.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+            message: "Files must be 5 MB or smaller"
+        });
+    }
+
+    if (
+        error.code === "INVALID_FILE_TYPE" ||
+        error.code === "LIMIT_UNEXPECTED_FILE"
+    ) {
+        return res.status(400).json({
+            message: "Unsupported file type or upload field"
+        });
+    }
+
+    console.error("Unhandled request error:", error);
+    return res.status(500).json({
+        message: "Server error"
+    });
+});
+
 module.exports = app;

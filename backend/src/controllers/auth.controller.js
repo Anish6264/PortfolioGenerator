@@ -4,10 +4,14 @@ const User = require("../models/User.js");
 
 const registerUser = async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { name: submittedName, email: submittedEmail, password } = req.body || {};
+        const name = typeof submittedName === "string" ? submittedName.trim() : "";
+        const email = typeof submittedEmail === "string"
+            ? submittedEmail.trim().toLowerCase()
+            : "";
 
         // Check required fields
-        if (!name || !email || !password) {
+        if (!name || !email || typeof password !== "string" || !password) {
             return res.status(400).json({
                 message: "Name, email and password are required"
             });
@@ -48,7 +52,7 @@ const registerUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("Registration error:", error.message);
+        console.error("Registration error:", error);
 
         return res.status(500).json({
             message: "Server error"
@@ -58,10 +62,13 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email: submittedEmail, password } = req.body || {};
+        const email = typeof submittedEmail === "string"
+            ? submittedEmail.trim().toLowerCase()
+            : "";
 
         // Check required fields
-        if (!email || !password) {
+        if (!email || typeof password !== "string" || !password) {
             return res.status(400).json({
                 message: "Email and password are required"
             });
@@ -112,7 +119,7 @@ const loginUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("Login error:", error.message);
+        console.error("Login error:", error);
 
         return res.status(500).json({
             message: "Server error"
@@ -141,7 +148,7 @@ const getCurrentUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("Get current user error:", error.message);
+        console.error("Get current user error:", error);
 
         return res.status(500).json({
             message: "Server error"

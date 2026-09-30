@@ -2,6 +2,8 @@ const path = require("path");
 
 const Portfolio = require("../models/Portfolio");
 
+const isValidPortfolioId = (id) => /^[a-f\d]{24}$/i.test(id || "");
+
 
 const uploadPortfolioFiles = async (req, res) => {
 
@@ -9,6 +11,12 @@ const uploadPortfolioFiles = async (req, res) => {
 
         const portfolioId =
             req.params.portfolioId;
+
+        if (!isValidPortfolioId(portfolioId)) {
+            return res.status(400).json({
+                message: "Invalid portfolio ID"
+            });
+        }
 
         const portfolio =
             await Portfolio.findOne({
@@ -59,15 +67,16 @@ const uploadPortfolioFiles = async (req, res) => {
 
     } catch (error) {
 
-        console.error(
-            "Upload files error:",
-            error.message
-        );
+        console.error("Upload files error:", error);
 
-        res.status(500).json({
-            message:
-                error.message ||
-                "Failed to upload files"
+        if (error.name === "ValidationError" || error.name === "CastError") {
+            return res.status(400).json({
+                message: "Invalid upload data"
+            });
+        }
+
+        return res.status(500).json({
+            message: "Server error"
         });
     }
 };
