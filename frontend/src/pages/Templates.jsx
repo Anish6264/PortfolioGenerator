@@ -33,7 +33,8 @@ function Templates() {
 
     const handleUseTemplate = (template) => {
         setAccessMessage("");
-        const builderPath = `/builder?template=${encodeURIComponent(template._id)}`;
+        const professionQuery = profession ? `&profession=${encodeURIComponent(profession)}` : "";
+        const builderPath = `/builder?template=${encodeURIComponent(template._id)}${professionQuery}`;
 
         if (isAuthLoading) {
             setAccessMessage("Your account is still loading. Please try again shortly.");

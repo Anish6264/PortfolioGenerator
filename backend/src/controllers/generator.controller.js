@@ -1,4 +1,5 @@
 const { ZipArchive } = require("archiver");
+const path = require("path");
 
 const {
     generatePortfolio,

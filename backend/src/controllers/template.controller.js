@@ -1,6 +1,5 @@
-const fs = require("fs");
-const path = require("path");
 const Template = require("../models/Template");
+const { readTemplateFiles } = require("../services/generator.service");
 
 const getTemplates = async (req, res) => {
     try {
@@ -70,41 +69,7 @@ const getTemplatePreview = async (req, res) => {
             });
         }
 
-        const templateDirectory = path.join(
-            __dirname,
-            "../templates",
-            template.templatePath
-        );
-
-        const htmlPath = path.join(
-            templateDirectory,
-            "index.html"
-        );
-
-        const cssPath = path.join(
-            templateDirectory,
-            "style.css"
-        );
-
-        const jsPath = path.join(
-            templateDirectory,
-            "script.js"
-        );
-
-        const html = fs.readFileSync(
-            htmlPath,
-            "utf-8"
-        );
-
-        const css = fs.readFileSync(
-            cssPath,
-            "utf-8"
-        );
-
-        const js = fs.readFileSync(
-            jsPath,
-            "utf-8"
-        );
+        const { "index.html": html, "style.css": css, "script.js": js } = readTemplateFiles(template.templatePath);
 
         return res.status(200).json({
             html,
@@ -113,13 +78,10 @@ const getTemplatePreview = async (req, res) => {
         });
 
     } catch (error) {
-        console.error(
-            "Template preview error:",
-            error.message
-        );
+        console.error("Template preview error:", error.code === "INVALID_TEMPLATE" ? "Template files are unavailable" : error.message);
 
         return res.status(500).json({
-            message: "Server error"
+            message: "Template preview is unavailable"
         });
     }
 };

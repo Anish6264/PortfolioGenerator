@@ -41,6 +41,7 @@ function Builder() {
     const [searchParams] = useSearchParams();
 
     const templateFromUrl = searchParams.get("template");
+    const professionFromUrl = searchParams.get("profession");
 
     const isEditMode = Boolean(id);
 
@@ -243,7 +244,9 @@ function Builder() {
 
         try {
             setLoadingTemplates(true);
-            const response = await api.get("/templates");
+            const response = await api.get("/templates", {
+                params: professionFromUrl ? { profession: professionFromUrl } : {}
+            });
             setAvailableTemplates(response.data.templates);
         } catch (error) {
             console.error(error);

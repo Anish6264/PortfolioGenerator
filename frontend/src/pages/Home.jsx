@@ -15,6 +15,7 @@ const professions = [
     ["product-manager", "Product Manager"],
     ["company", "Company / Business"]
 ];
+const professionLabels = Object.fromEntries(professions);
 
 const getGenerationCost = (template) =>
     Math.max(1, template.creditCost || 0);
@@ -42,7 +43,7 @@ function Home() {
 
     const handleUseTemplate = (template) => {
         setAccessMessage("");
-        const builderPath = `/builder?template=${encodeURIComponent(template._id)}`;
+        const builderPath = `/builder?template=${encodeURIComponent(template._id)}&profession=${encodeURIComponent(template.category)}`;
 
         if (isAuthLoading) {
             setAccessMessage("Your account is still loading. Please try again shortly.");
@@ -105,7 +106,7 @@ function Home() {
                                     />
                                 )}
                                 <h3>{template.name}</h3>
-                                <p>Category: {template.category}</p>
+                                <p>Category: {professionLabels[template.category] || template.category}</p>
                                 <p>
                                     {template.isPremium ? "Premium" : "Free"}
                                     {" · "}

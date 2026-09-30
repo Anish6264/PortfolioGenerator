@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{name}} — Security &amp; Operations</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="command-bar" id="home"><a class="terminal-brand" href="#home"><span aria-hidden="true">&gt;_</span> {{name}}</a><nav aria-label="Main navigation"><a href="#about">Overview</a><a href="#experience">Operations</a><a href="#projects">Work log</a><a href="#skills">Capabilities</a><a href="#contact">Connect</a></nav><span class="availability"><i aria-hidden="true"></i> {{title}}</span></header>
+
+  <main>
+    <section class="hero" aria-labelledby="hero-title"><div class="hero-copy"><p class="system-label">SYSTEM PROFILE <span> / </span> SECURITY &amp; INFRASTRUCTURE</p><h1 id="hero-title">Trust is<br><span>engineered.</span></h1><p class="person-line">{{name}} <span>·</span> {{location}}</p><p class="hero-summary">{{shortIntro}}</p><div class="hero-actions"><a class="primary-btn" href="#projects">Inspect work <span aria-hidden="true">↓</span></a><a class="resume-link secondary-btn" href="{{resume}}" target="_blank" rel="noopener noreferrer">Résumé ↗</a></div></div>
+      <div class="terminal-panel" aria-label="Technical profile"><div class="terminal-top"><span class="terminal-lights" aria-hidden="true">● ● ●</span><span>profile.log</span><span>READ ONLY</span></div><div class="terminal-body"><p><span class="prompt">$</span> whoami</p><p class="terminal-result">{{name}}</p><p><span class="prompt">$</span> focus --current</p><p class="terminal-result">{{title}}</p><p><span class="prompt">$</span> location</p><p class="terminal-result">{{location}}</p><div class="terminal-rule"></div><div class="portrait-frame"><img src="{{profileImage}}" alt="Portrait of {{name}}"><span>OPERATOR / 001</span></div></div></div>
+      <div class="hero-foot"><span>PORTFOLIO ACCESS: PUBLIC</span><span>BUILD / 01</span></div>
+    </section>
+
+    <section class="section about-section" id="about"><div class="section-heading"><span>01 / OVERVIEW</span><h2>Intentional by design.</h2></div><div class="section-content"><p class="about-copy">{{about}}</p><p>{{shortIntro}}</p></div></section>
+    <section class="section experience-section" id="experience"><div class="section-heading"><span>02 / OPERATIONS</span><h2>Experience log</h2></div><div class="section-content ops-list">{{experience}}</div></section>
+    <section class="section projects-section" id="projects"><div class="section-heading"><span>03 / WORK LOG</span><h2>Selected engagements</h2></div><div class="section-content incident-grid">{{projects}}</div></section>
+    <section class="section skills-section" id="skills"><div class="section-heading"><span>04 / CAPABILITIES</span><h2>Technical coverage</h2></div><div class="section-content capability-grid">{{skills}}</div></section>
+    <section class="section education-section" id="education"><div class="section-heading"><span>05 / TRAINING</span><h2>Education</h2></div><div class="section-content training-list">{{education}}</div></section>
+    <section class="section contact-section" id="contact"><div class="section-heading"><span>06 / CONTACT</span><h2>Open a channel.</h2></div><div class="section-content contact-card"><a class="email" href="mailto:{{email}}">{{email}}</a><p>{{phone}} <span aria-hidden="true">·</span> {{location}}</p><div class="social-links"><a href="{{github}}" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="{{linkedin}}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a><a href="{{twitter}}" target="_blank" rel="noopener noreferrer">Twitter ↗</a></div></div></section>
+  </main>
+
+  <footer><span>© {{name}} — END OF PROFILE</span><a href="#home">Return to top ↑</a></footer>
+  <script src="script.js"></script>
+</body>
+</html>

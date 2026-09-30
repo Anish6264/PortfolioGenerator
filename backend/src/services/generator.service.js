@@ -3,6 +3,7 @@ const path = require("path");
 
 const Portfolio = require("../models/Portfolio");
 const Template = require("../models/Template");
+const templateContract = require("./templateContract");
 
 const supportedSections = [
     "about",
@@ -27,6 +28,90 @@ const fontFamilies = {
     Roboto: "Roboto, Arial, sans-serif",
     "Open Sans": "'Open Sans', Arial, sans-serif",
     Merriweather: "Merriweather, Georgia, serif"
+};
+
+const templateRoot = path.resolve(__dirname, "../templates");
+const requiredTemplateFiles = templateContract.requiredFiles;
+
+const resolveTemplateDirectory = (templatePath) => {
+    if (typeof templatePath !== "string" || !/^[a-z\d][a-z\d_-]*$/i.test(templatePath)) {
+        const error = new Error("Template configuration is invalid");
+        error.code = "INVALID_TEMPLATE";
+        throw error;
+    }
+    const directory = path.resolve(templateRoot, templatePath);
+    const relative = path.relative(templateRoot, directory);
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+        const error = new Error("Template configuration is invalid");
+        error.code = "INVALID_TEMPLATE";
+        throw error;
+    }
+    return directory;
+};
+
+const readTemplateFiles = (templatePath) => {
+    const directory = resolveTemplateDirectory(templatePath);
+    try {
+        const realRoot = fs.realpathSync(templateRoot);
+        const realDirectory = fs.realpathSync(directory);
+        const directoryRelative = path.relative(realRoot, realDirectory);
+        if (!directoryRelative || directoryRelative.startsWith("..") || path.isAbsolute(directoryRelative)) {
+            throw new Error("Invalid template location");
+        }
+        const files = {};
+        for (const filename of requiredTemplateFiles) {
+            const filePath = path.join(directory, filename);
+            const realFile = fs.realpathSync(filePath);
+            const fileRelative = path.relative(realDirectory, realFile);
+            if (fileRelative.startsWith("..") || path.isAbsolute(fileRelative) || !fs.statSync(realFile).isFile()) {
+                throw new Error("Invalid template file");
+            }
+            files[filename] = fs.readFileSync(realFile, "utf8");
+        }
+        return files;
+    } catch {
+        const error = new Error("Template files are unavailable");
+        error.code = "INVALID_TEMPLATE";
+        throw error;
+    }
+};
+
+const isObject = (value) => value && typeof value === "object" && !Array.isArray(value);
+
+const normalizePortfolioForTemplate = (portfolio = {}) => {
+    const plainPortfolio = portfolio && typeof portfolio.toObject === "function"
+        ? portfolio.toObject({ depopulate: true })
+        : portfolio;
+    const source = isObject(plainPortfolio) ? plainPortfolio : {};
+    const personal = isObject(source.personal) ? source.personal : {};
+    const social = isObject(source.social) ? source.social : {};
+    const sectionVisibility = isObject(source.sectionVisibility) ? source.sectionVisibility : {};
+    const sectionOrder = Array.isArray(source.sectionOrder)
+        ? [...new Set(source.sectionOrder)].filter((section) => supportedSections.includes(section))
+        : [];
+    const customSections = Array.isArray(source.customSections)
+        ? source.customSections.filter((item) => isObject(item) && typeof item.title === "string")
+            .map((item) => ({ title: item.title.slice(0, 80), content: typeof item.content === "string" ? item.content.slice(0, 4000) : "" }))
+        : [];
+    return {
+        ...source,
+        personal,
+        social,
+        skills: Array.isArray(source.skills) ? source.skills.filter((item) => typeof item === "string") : [],
+        education: Array.isArray(source.education) ? source.education.filter(isObject) : [],
+        experience: Array.isArray(source.experience) ? source.experience.filter(isObject) : [],
+        projects: Array.isArray(source.projects) ? source.projects.filter(isObject).map((project) => ({
+            ...project,
+            technologies: Array.isArray(project.technologies) ? project.technologies.filter((item) => typeof item === "string") : []
+        })) : [],
+        sectionVisibility: Object.fromEntries(Object.entries(sectionVisibility).filter(([key, value]) => supportedSections.includes(key) && typeof value === "boolean")),
+        sectionOrder,
+        customSections,
+        seoTitle: typeof source.seoTitle === "string" ? source.seoTitle.slice(0, 70) : "",
+        seoDescription: typeof source.seoDescription === "string" ? source.seoDescription.slice(0, 200) : "",
+        shortIntro: typeof source.shortIntro === "string" ? source.shortIntro : "",
+        about: typeof source.about === "string" ? source.about : ""
+    };
 };
 
 const escapeHtml = (value) => String(value)
@@ -237,7 +322,16 @@ const addPortfolioMetadata = (html, portfolio, imageAsset) => {
 };
 
 const applyPortfolioSettings = (html, portfolio, imageAsset) => {
-    let updatedHtml = hideSections(html, portfolio.sectionVisibility);
+    const visibility = { ...portfolio.sectionVisibility };
+    if (!portfolio.about.trim() && !portfolio.shortIntro.trim()) visibility.about = false;
+    if (!portfolio.education.length) visibility.education = false;
+    if (!portfolio.experience.length) visibility.experience = false;
+    if (!portfolio.skills.length) visibility.skills = false;
+    if (!portfolio.projects.length) visibility.projects = false;
+    if (![portfolio.personal.email, portfolio.personal.phone, portfolio.personal.location, ...Object.values(portfolio.social)]
+        .some((value) => typeof value === "string" && value.trim())) visibility.contact = false;
+
+    let updatedHtml = hideSections(html, visibility);
     updatedHtml = reorderSections(updatedHtml, portfolio.sectionOrder);
 
     const customSectionsHtml = buildCustomSectionsHtml(portfolio.customSections);
@@ -318,10 +412,6 @@ const generateEducationHTML = (education) => {
                     <h4>
                         ${escapeHtml(item.institution || "")}
                     </h4>
-
-                    <p>
-                        ${escapeHtml(item.field || "")}
-                    </p>
 
                     <p>
                         ${escapeHtml(item.startYear || "")}
@@ -573,7 +663,7 @@ const generatePortfolio = async (
     // Find portfolio
     // ----------------------------------------------
 
-    const portfolio =
+    const storedPortfolio =
         await Portfolio.findOne({
 
             _id: portfolioId,
@@ -584,12 +674,14 @@ const generatePortfolio = async (
         });
 
 
-    if (!portfolio) {
+    if (!storedPortfolio) {
         const error = new Error("Portfolio not found");
         error.status = 404;
         throw error;
 
     }
+
+    const portfolio = normalizePortfolioForTemplate(storedPortfolio);
 
 
     // ----------------------------------------------
@@ -618,79 +710,10 @@ const generatePortfolio = async (
     // Template directory
     // ----------------------------------------------
 
-    const templateDirectory =
-        path.join(
-
-            __dirname,
-
-            "../templates",
-
-            template.templatePath
-
-        );
-
-
-    if (
-        !fs.existsSync(
-            templateDirectory
-        )
-    ) {
-
-        throw new Error(
-            "Template files not found"
-        );
-
-    }
-
-
-    // ----------------------------------------------
-    // Template files
-    // ----------------------------------------------
-
-    const htmlPath =
-        path.join(
-            templateDirectory,
-            "index.html"
-        );
-
-
-    const cssPath =
-        path.join(
-            templateDirectory,
-            "style.css"
-        );
-
-
-    const jsPath =
-        path.join(
-            templateDirectory,
-            "script.js"
-        );
-
-
-    // ----------------------------------------------
-    // Read template files
-    // ----------------------------------------------
-
-    const htmlTemplate =
-        fs.readFileSync(
-            htmlPath,
-            "utf-8"
-        );
-
-
-    const css =
-        fs.readFileSync(
-            cssPath,
-            "utf-8"
-        );
-
-
-    const js =
-        fs.readFileSync(
-            jsPath,
-            "utf-8"
-        );
+    const templateFiles = readTemplateFiles(template.templatePath);
+    const htmlTemplate = templateFiles["index.html"];
+    const css = templateFiles["style.css"];
+    const js = templateFiles["script.js"];
 
 
     // =================================================
@@ -833,5 +856,10 @@ const preparePreviewHtml = (result, { inlineAssets = false } = {}) => {
 module.exports = {
     generatePortfolio,
     preparePreviewHtml,
-    resolvePortfolioAssetPath
+    resolvePortfolioAssetPath,
+    readTemplateFiles,
+    normalizePortfolioForTemplate,
+    supportedSections,
+    fontFamilies,
+    templateContract
 };

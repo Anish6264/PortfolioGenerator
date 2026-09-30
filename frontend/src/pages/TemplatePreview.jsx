@@ -9,6 +9,18 @@ import { useAuth } from "../hooks/useAuth";
 
 import api from "../services/api";
 
+const categoryLabels = {
+    developer: "Software Developer",
+    "ml-engineer": "ML Engineer",
+    "data-scientist": "Data Scientist",
+    "web-developer": "Web Developer",
+    devops: "DevOps Engineer",
+    cybersecurity: "Cybersecurity",
+    "ui-ux": "UI/UX Designer",
+    "product-manager": "Product Manager",
+    company: "Company / Business"
+};
+
 function TemplatePreview() {
 const navigate = useNavigate();
     const location = useLocation();
@@ -85,7 +97,7 @@ const navigate = useNavigate();
             </p>
 
             <p>
-                Category: {template.category}
+                Category: {categoryLabels[template.category] || template.category}
             </p>
 
             <p>
@@ -98,7 +110,7 @@ const navigate = useNavigate();
 
             <button
                 onClick={() => {
-                    const builderPath = `/builder?template=${encodeURIComponent(id)}`;
+                    const builderPath = `/builder?template=${encodeURIComponent(id)}&profession=${encodeURIComponent(template.category)}`;
 
                     if (isAuthLoading) {
                         setAccessMessage("Your account is still loading. Please try again shortly.");
@@ -128,26 +140,9 @@ const navigate = useNavigate();
 
             <iframe
                 title="Template Preview"
-                srcDoc={`
-                    <!DOCTYPE html>
-                    <html>
-                        <head>
-                            <style>
-                                ${preview.css}
-                            </style>
-                        </head>
-
-                        <body>
-
-                            ${preview.html}
-
-                            <script>
-                                ${preview.js}
-                            </script>
-
-                        </body>
-                    </html>
-                `}
+                srcDoc={preview.html
+                    .replace(/<link\b[^>]*href=["']style\.css["'][^>]*>/i, `<style>${preview.css}</style>`)
+                    .replace(/<script\b[^>]*src=["']script\.js["'][^>]*><\/script>/i, `<script>${preview.js}</script>`)}
                 style={{
                     width: "100%",
                     height: "800px",

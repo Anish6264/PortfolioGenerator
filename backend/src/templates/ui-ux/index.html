@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{name}} — Designer &amp; Creative</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="creative-header"><a href="#home" class="monogram">{{name}}</a><nav aria-label="Main navigation"><a href="#about">Approach</a><a href="#projects">Selected work</a><a href="#experience">Practice</a><a href="#contact">Say hello</a></nav><a class="resume-pill" href="{{resume}}" target="_blank" rel="noopener noreferrer">Résumé ↗</a></header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="hero-top"><span>DESIGNER / {{location}}</span><span>PORTFOLIO — 2026</span></div>
+      <div class="hero-main"><div class="hero-copy"><p class="hero-pretitle">Good design makes room for people.</p><h1>Make it<br><i>useful.</i><br>Make it <b>feel.</b></h1><p class="hero-role">{{name}} <span>·</span> {{title}}</p><p class="hero-intro">{{shortIntro}}</p><a class="work-link" href="#projects">See selected work <span aria-hidden="true">↘</span></a></div><div class="portrait-art" aria-label="Portrait of {{name}}"><div class="art-shape shape-one"></div><div class="art-shape shape-two"></div><div class="art-shape shape-three"></div><img src="{{profileImage}}" alt="Portrait of {{name}}"><span class="art-caption">DESIGN WITH INTENTION</span></div></div>
+      <div class="hero-bottom"><span>PRODUCT · INTERACTION · SYSTEMS</span><a href="#about" aria-label="Scroll to approach">↓</a></div>
+    </section>
+
+    <section class="section about-section" id="about"><div class="section-kicker"><span>01</span><h2>Approach</h2></div><div class="section-copy"><p class="big-copy">{{about}}</p><p>{{shortIntro}}</p></div></section>
+    <section class="section projects-section" id="projects"><div class="section-kicker"><span>02</span><h2>Selected work</h2></div><div class="section-copy work-gallery">{{projects}}</div></section>
+    <section class="section skills-section" id="skills"><div class="section-kicker"><span>03</span><h2>Tools &amp; craft</h2></div><div class="section-copy skill-cloud">{{skills}}</div></section>
+    <section class="section experience-section" id="experience"><div class="section-kicker"><span>04</span><h2>Practice</h2></div><div class="section-copy practice-list">{{experience}}</div></section>
+    <section class="section education-section" id="education"><div class="section-kicker"><span>05</span><h2>Learning</h2></div><div class="section-copy learning-list">{{education}}</div></section>
+    <section class="section contact-section" id="contact"><div class="section-kicker"><span>06</span><h2>Let’s talk</h2></div><div class="section-copy contact-box"><p>Have a challenge worth designing for?</p><a class="contact-email" href="mailto:{{email}}">{{email}} ↗</a><p>{{phone}} <span aria-hidden="true">·</span> {{location}}</p><div class="social-links"><a href="{{linkedin}}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a><a href="{{github}}" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="{{twitter}}" target="_blank" rel="noopener noreferrer">Twitter ↗</a></div></div></section>
+  </main>
+
+  <footer><span>© {{name}}</span><span>Designed around people.</span><a href="#home">Back to the top ↑</a></footer>
+  <script src="script.js"></script>
+</body>
+</html>

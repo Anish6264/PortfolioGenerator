@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{name}} — Data Scientist</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead"><a class="signature" href="#home">{{name}}<span> / DS</span></a><nav aria-label="Main navigation"><a href="#about">Profile</a><a href="#projects">Analysis</a><a href="#experience">Career</a><a href="#skills">Methods</a><a href="#contact">Contact</a></nav><a class="resume-link" href="{{resume}}" target="_blank" rel="noopener noreferrer">CV <span aria-hidden="true">↗</span></a></header>
+
+  <main>
+    <section class="hero" id="home">
+      <div class="hero-left"><p class="overline">DATA SCIENCE · ANALYTICS · MODELING</p><h1>{{name}}<br><span>finds the signal.</span></h1><p class="title-line">{{title}} <i aria-hidden="true">—</i> {{location}}</p><p class="summary">{{shortIntro}}</p><a class="hero-cta" href="#projects">Explore the work <span aria-hidden="true">↓</span></a></div>
+      <div class="chart-card" aria-label="Decorative data visualization"><div class="chart-head"><span>INQUIRY / PROCESS</span><span class="chart-dot" aria-hidden="true">●</span></div><div class="chart-plot" aria-hidden="true"><span class="plot-line line-one"></span><span class="plot-line line-two"></span><span class="plot-line line-three"></span><span class="plot-point point-one"></span><span class="plot-point point-two"></span><span class="plot-point point-three"></span><span class="plot-point point-four"></span></div><div class="chart-foot"><span>OBSERVE</span><span>MODEL</span><span>INTERPRET</span></div><div class="portrait-chip"><img src="{{profileImage}}" alt="Portrait of {{name}}"><span>{{name}}</span></div></div>
+      <div class="hero-note">ANALYSIS SHOULD MAKE<br>THE NEXT DECISION CLEARER.</div>
+    </section>
+
+    <section class="section about-section" id="about"><div class="section-heading"><span>01 / PROFILE</span><h2>Turning complexity into clarity.</h2></div><div class="section-body"><p class="about-copy">{{about}}</p><p class="short-copy">{{shortIntro}}</p></div></section>
+    <section class="section projects-section" id="projects"><div class="section-heading"><span>02 / SELECTED ANALYSIS</span><h2>Projects &amp; investigations</h2></div><div class="section-body project-cases">{{projects}}</div></section>
+    <section class="section experience-section" id="experience"><div class="section-heading"><span>03 / CAREER</span><h2>Experience</h2></div><div class="section-body career-list">{{experience}}</div></section>
+    <section class="section education-section" id="education"><div class="section-heading"><span>04 / FOUNDATIONS</span><h2>Education</h2></div><div class="section-body education-list">{{education}}</div></section>
+    <section class="section skills-section" id="skills"><div class="section-heading"><span>05 / METHODS</span><h2>Technical toolkit</h2></div><div class="section-body skills-board">{{skills}}</div></section>
+    <section class="section contact-section" id="contact"><div class="section-heading"><span>06 / CORRESPONDENCE</span><h2>Let’s compare notes.</h2></div><div class="section-body contact-card"><a class="email" href="mailto:{{email}}">{{email}}</a><p>{{phone}} <span aria-hidden="true">·</span> {{location}}</p><div class="social-links"><a href="{{github}}" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="{{linkedin}}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a><a href="{{twitter}}" target="_blank" rel="noopener noreferrer">Twitter ↗</a></div></div></section>
+  </main>
+
+  <footer><span>© {{name}} — Data &amp; practice</span><a href="#home">Top of page ↑</a></footer>
+  <script src="script.js"></script>
+</body>
+</html>

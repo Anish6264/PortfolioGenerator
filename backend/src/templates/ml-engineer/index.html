@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{name}} — ML Engineer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="#home"><span class="brand-mark" aria-hidden="true">∑</span>{{name}}</a><nav aria-label="Main navigation"><a href="#about">Research</a><a href="#experience">Experience</a><a href="#skills">Stack</a><a href="#projects">Projects</a><a href="#contact">Connect</a></nav><a class="top-resume" href="{{resume}}" target="_blank" rel="noopener noreferrer">Résumé <span aria-hidden="true">↗</span></a></header>
+
+  <main>
+    <section class="hero" id="home" aria-labelledby="hero-title">
+      <div class="hero-copy"><p class="kicker"><span class="pulse" aria-hidden="true"></span> MACHINE LEARNING · APPLIED AI</p><h1 id="hero-title">Building systems<br>that <em>learn.</em></h1><p class="hero-name">{{name}} <span>— {{title}}</span></p><p class="hero-intro">{{shortIntro}}</p><div class="hero-links"><a class="action" href="#projects">Explore selected work <span aria-hidden="true">↓</span></a><a class="quiet-link" href="mailto:{{email}}">Start a conversation</a></div></div>
+      <div class="hero-visual" aria-label="Profile portrait and machine learning motif"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><span class="node node-a"></span><span class="node node-b"></span><span class="node node-c"></span><div class="portrait-wrap"><img src="{{profileImage}}" alt="Portrait of {{name}}"></div><span class="visual-caption">MODEL / HUMAN INTERFACE</span></div>
+      <div class="hero-foot"><span>PORTFOLIO / 01</span><span>{{location}}</span></div>
+    </section>
+
+    <section class="section about-section" id="about"><div class="section-title"><span>01 — RESEARCH</span><h2>Curiosity, made useful.</h2></div><div class="section-content"><p class="intro-large">{{about}}</p><p class="supporting-copy">{{shortIntro}}</p></div></section>
+    <section class="section experience-section" id="experience"><div class="section-title"><span>02 — FIELD NOTES</span><h2>Experience</h2></div><div class="section-content experience-list">{{experience}}</div></section>
+    <section class="section skills-section" id="skills"><div class="section-title"><span>03 — TOOLKIT</span><h2>Technical skills</h2></div><div class="section-content skill-matrix">{{skills}}</div></section>
+    <section class="section projects-section" id="projects"><div class="section-title"><span>04 — EXPERIMENTS</span><h2>Selected projects</h2></div><div class="section-content project-grid">{{projects}}</div></section>
+    <section class="section education-section" id="education"><div class="section-title"><span>05 — FOUNDATIONS</span><h2>Education</h2></div><div class="section-content education-list">{{education}}</div></section>
+    <section class="section contact-section" id="contact"><div class="section-title"><span>06 — OPEN CHANNEL</span><h2>Let’s connect.</h2></div><div class="section-content contact-content"><a class="contact-email" href="mailto:{{email}}">{{email}}</a><p>{{phone}} <span aria-hidden="true">·</span> {{location}}</p><div class="social-links"><a href="{{github}}" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="{{linkedin}}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a><a href="{{twitter}}" target="_blank" rel="noopener noreferrer">Twitter ↗</a></div></div></section>
+  </main>
+
+  <footer><span>© {{name}}</span><span>Designed for ideas in motion.</span><a href="#home">Back to top ↑</a></footer>
+  <script src="script.js"></script>
+</body>
+</html>

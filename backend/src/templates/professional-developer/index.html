@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{name}} — Professional Profile</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead" id="home">
+    <div class="masthead-inner">
+      <div class="identity">
+        <img class="portrait" src="{{profileImage}}" alt="Portrait of {{name}}">
+        <div><p class="eyebrow">Professional profile</p><h1>{{name}}</h1><p class="job-title">{{title}}</p></div>
+      </div>
+      <div class="header-actions"><a class="resume-action primary-btn" href="{{resume}}" target="_blank" rel="noopener noreferrer">View résumé <span aria-hidden="true">↗</span></a><a class="email-action" href="mailto:{{email}}">{{email}}</a></div>
+    </div>
+  </header>
+
+  <nav class="section-nav" aria-label="Profile sections">
+    <a href="#about">Summary</a><a href="#experience">Experience</a><a href="#education">Education</a><a href="#skills">Expertise</a><a href="#projects">Selected work</a><a href="#contact">Contact</a>
+  </nav>
+
+  <main class="resume-layout">
+    <section class="cv-section summary-section" id="about">
+      <div class="section-heading"><p>01</p><h2>Career summary</h2></div>
+      <div class="section-content"><p class="summary-lede">{{shortIntro}}</p><p>{{about}}</p></div>
+    </section>
+
+    <section class="cv-section experience-section" id="experience">
+      <div class="section-heading"><p>02</p><h2>Experience</h2></div>
+      <div class="section-content experience-list">{{experience}}</div>
+    </section>
+
+    <section class="cv-section projects-section" id="projects">
+      <div class="section-heading"><p>03</p><h2>Selected projects</h2></div>
+      <div class="section-content case-studies">{{projects}}</div>
+    </section>
+
+    <section class="cv-section education-section" id="education">
+      <div class="section-heading"><p>04</p><h2>Education</h2></div>
+      <div class="section-content education-list">{{education}}</div>
+    </section>
+
+    <section class="cv-section expertise-section" id="skills">
+      <div class="section-heading"><p>05</p><h2>Expertise</h2></div>
+      <div class="section-content expertise-list">{{skills}}</div>
+    </section>
+    <section class="cv-section contact-section" id="contact">
+      <div class="section-heading"><p>06</p><h2>Contact</h2></div>
+      <div class="section-content"><dl><dt>Email</dt><dd><a href="mailto:{{email}}">{{email}}</a></dd><dt>Phone</dt><dd>{{phone}}</dd><dt>Location</dt><dd>{{location}}</dd></dl>
+        <div class="social-links"><a href="{{linkedin}}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a><a href="{{github}}" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="{{twitter}}" target="_blank" rel="noopener noreferrer">Twitter ↗</a></div>
+      </div>
+    </section>
+  </main>
+
+  <footer><span>{{name}} · {{title}}</span><a href="#home">Return to top ↑</a></footer>
+  <script src="script.js"></script>
+</body>
+</html>
