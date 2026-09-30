@@ -24,8 +24,21 @@ function Builder() {
     // Template
     // --------------------------------------------------
 
-    const [selectedTemplateId, setSelectedTemplateId] =
-        useState(templateFromUrl);
+    const [portfolioTemplateId, setPortfolioTemplateId] =
+        useState(null);
+
+    const [availableTemplates, setAvailableTemplates] =
+        useState([]);
+
+    const [showTemplateSelector, setShowTemplateSelector] =
+        useState(false);
+
+    const [loadingTemplates, setLoadingTemplates] =
+        useState(false);
+
+    const selectedTemplateId = isEditMode
+        ? portfolioTemplateId
+        : templateFromUrl;
 
 
     // --------------------------------------------------
@@ -120,6 +133,31 @@ function Builder() {
     const [technologyInputs, setTechnologyInputs] =
         useState({});
 
+    const handleTemplateSelectorToggle = async () => {
+        if (showTemplateSelector) {
+            setShowTemplateSelector(false);
+            return;
+        }
+
+        setShowTemplateSelector(true);
+        setError("");
+
+        if (availableTemplates.length > 0) {
+            return;
+        }
+
+        try {
+            setLoadingTemplates(true);
+            const response = await api.get("/templates");
+            setAvailableTemplates(response.data.templates);
+        } catch (error) {
+            console.error(error);
+            setError("Failed to load templates");
+        } finally {
+            setLoadingTemplates(false);
+        }
+    };
+
 
     // ==================================================
     // LOAD EXISTING PORTFOLIO
@@ -144,7 +182,7 @@ function Builder() {
                 const portfolio =
                     response.data.portfolio;
 
-                setSelectedTemplateId(
+                setPortfolioTemplateId(
                     portfolio.template?._id ||
                     portfolio.template
                 );
@@ -1073,6 +1111,47 @@ function Builder() {
                 </p>
             )}
 
+
+            {isEditMode && (
+                <section>
+                    <h2>Template</h2>
+
+                    <button
+                        type="button"
+                        onClick={handleTemplateSelectorToggle}
+                    >
+                        {showTemplateSelector
+                            ? "Close Templates"
+                            : "Change Template"}
+                    </button>
+
+                    {showTemplateSelector && (
+                        <div>
+                            <label htmlFor="portfolio-template">
+                                Select a template
+                            </label>
+
+                            <select
+                                id="portfolio-template"
+                                value={selectedTemplateId || ""}
+                                onChange={(event) =>
+                                    setPortfolioTemplateId(event.target.value)
+                                }
+                                disabled={loadingTemplates}
+                            >
+                                {availableTemplates.map((template) => (
+                                    <option
+                                        key={template._id}
+                                        value={template._id}
+                                    >
+                                        {template.name} ({template.category})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </section>
+            )}
 
             <form onSubmit={handleSubmit}>
 

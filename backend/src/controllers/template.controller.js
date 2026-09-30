@@ -4,9 +4,25 @@ const Template = require("../models/Template");
 
 const getTemplates = async (req, res) => {
     try {
-        const templates = await Template.find({
+        const filter = {
             isActive: true
-        }).sort({
+        };
+        const category = req.query.category || req.query.profession;
+
+        if (category) {
+            const supportedCategories =
+                Template.schema.path("category").enumValues;
+
+            if (!supportedCategories.includes(category)) {
+                return res.status(400).json({
+                    message: "Invalid template category"
+                });
+            }
+
+            filter.category = category;
+        }
+
+        const templates = await Template.find(filter).sort({
             createdAt: -1
         });
 

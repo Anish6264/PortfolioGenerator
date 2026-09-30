@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
     Link,
+    useLocation,
     useNavigate,
     useParams
 } from "react-router-dom";
@@ -10,6 +11,7 @@ import api from "../services/api";
 
 function TemplatePreview() {
 const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams();
 
     const [template, setTemplate] = useState(null);
@@ -69,7 +71,7 @@ const navigate = useNavigate();
     return (
         <div>
 
-            <Link to="/templates">
+            <Link to={`/templates${location.search}`}>
                 ← Back to Templates
             </Link>
 
@@ -81,6 +83,10 @@ const navigate = useNavigate();
                 {template.description}
             </p>
 
+            <p>
+                Category: {template.category}
+            </p>
+
             <button
     onClick={() => {
 
@@ -88,7 +94,7 @@ const navigate = useNavigate();
 
             navigate("/login", {
                 state: {
-                    from: `/templates/${id}`
+                    from: `/builder?template=${encodeURIComponent(id)}`
                 }
             });
 

@@ -27,7 +27,18 @@ const templateSchema = new mongoose.Schema(
         category: {
             type: String,
             required: true,
-            trim: true
+            trim: true,
+            enum: [
+                "developer",
+                "ml-engineer",
+                "data-scientist",
+                "web-developer",
+                "devops",
+                "cybersecurity",
+                "ui-ux",
+                "product-manager",
+                "company"
+            ]
         },
 
         templatePath: {

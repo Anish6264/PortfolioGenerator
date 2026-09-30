@@ -3,6 +3,18 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import api from "../services/api";
 
+const categoryLabels = {
+    developer: "Software Developer",
+    "ml-engineer": "ML Engineer",
+    "data-scientist": "Data Scientist",
+    "web-developer": "Web Developer",
+    devops: "DevOps Engineer",
+    cybersecurity: "Cybersecurity",
+    "ui-ux": "UI/UX Designer",
+    "product-manager": "Product Manager",
+    company: "Company / Business"
+};
+
 function Templates() {
 
     const [templates, setTemplates] = useState([]);
@@ -11,7 +23,9 @@ function Templates() {
 
     const [searchParams] = useSearchParams();
 
-    const profession = searchParams.get("profession");
+    const profession =
+        searchParams.get("profession") ||
+        searchParams.get("category");
 
     useEffect(() => {
 
@@ -19,22 +33,11 @@ function Templates() {
 
             try {
 
-                const response = await api.get("/templates");
+                const response = await api.get("/templates", {
+                    params: profession ? { profession } : {}
+                });
 
-                let availableTemplates =
-                    response.data.templates;
-
-                if (profession) {
-
-                    availableTemplates =
-                        availableTemplates.filter(
-                            (template) =>
-                                template.category === profession
-                        );
-
-                }
-
-                setTemplates(availableTemplates);
+                setTemplates(response.data.templates);
 
             } catch (error) {
 
@@ -69,7 +72,7 @@ function Templates() {
 
             <h1>
                 {profession
-                    ? `${profession} Templates`
+                    ? `${categoryLabels[profession] || profession} Templates`
                     : "Choose Your Template"}
             </h1>
 
@@ -96,11 +99,16 @@ function Templates() {
                             </p>
 
                             <p>
-                                Category: {template.category}
+                                Category: {
+                                    categoryLabels[template.category] ||
+                                    template.category
+                                }
                             </p>
 
                             <Link
-                                to={`/templates/${template._id}`}
+                                to={`/templates/${template._id}${profession
+                                    ? `?profession=${encodeURIComponent(profession)}`
+                                    : ""}`}
                             >
                                 Preview
                             </Link>
