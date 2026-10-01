@@ -205,7 +205,7 @@ const updateProfile = async (req, res) => {
         const user = await User.findByIdAndUpdate(
             req.user.id,
             { $set: updates },
-            { new: true, runValidators: true, select: "name email avatar credits" }
+            { new: true, runValidators: true, select: "name email avatar role credits" }
         );
 
         if (!user) return res.status(404).json({ message: "User not found" });
@@ -217,6 +217,7 @@ const updateProfile = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 avatar: user.avatar,
+                role: user.role,
                 credits: user.credits
             }
         });

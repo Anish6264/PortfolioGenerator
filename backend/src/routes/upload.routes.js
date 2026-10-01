@@ -5,12 +5,18 @@ const upload = require("../middleware/upload.middleware");
 const protect = require("../middleware/auth.middleware");
 
 const {
-    uploadPortfolioFiles
+    uploadPortfolioFiles,
+    removePortfolioResume,
+    removePortfolioProfileImage,
+    getPortfolioProfileImage
 } = require("../controllers/upload.controller");
 
 
 const router = express.Router();
 
+router.get("/:portfolioId/profile-image", protect, getPortfolioProfileImage);
+router.delete("/:portfolioId/resume", protect, removePortfolioResume);
+router.delete("/:portfolioId/profile-image", protect, removePortfolioProfileImage);
 
 router.post(
     "/:portfolioId",

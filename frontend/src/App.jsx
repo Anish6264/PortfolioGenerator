@@ -14,6 +14,9 @@ import PortfolioPreview from "./pages/PortfolioPreview";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicPortfolio from "./pages/PublicPortfolio";
 import Profile from "./pages/Profile";
+import AdminTemplates from "./pages/AdminTemplates";
+import AdminTemplateEdit from "./pages/AdminTemplateEdit";
+import AdminRoute from "./components/AdminRoute";
 
 
 function App() {
@@ -91,6 +94,15 @@ function App() {
                 />
 
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+
+                <Route
+                    path="/admin/templates"
+                    element={<AdminRoute><AdminTemplates /></AdminRoute>}
+                />
+                <Route
+                    path="/admin/templates/:id/edit"
+                    element={<AdminRoute><AdminTemplateEdit /></AdminRoute>}
+                />
 
             </Routes>
 

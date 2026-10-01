@@ -32,7 +32,7 @@ const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
-    const { user, isAuthenticated, isAuthLoading } = useAuth();
+    const { isAuthenticated, isAuthLoading } = useAuth();
     const [accessMessage, setAccessMessage] = useState("");
 
     useEffect(() => {
@@ -119,12 +119,6 @@ const navigate = useNavigate();
 
                     if (!isAuthenticated) {
                         navigate("/login", { state: { from: builderPath } });
-                        return;
-                    }
-
-                    const cost = Math.max(1, template.creditCost || 0);
-                    if ((user?.credits ?? 0) < cost) {
-                        setAccessMessage(`You need ${cost} credits to use this template.`);
                         return;
                     }
 

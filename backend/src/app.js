@@ -9,6 +9,7 @@ const uploadRoutes = require("./routes/upload.routes");
 const publicPortfolioRoutes = require("./routes/publicPortfolio.routes");
 const importRoutes = require("./routes/import.routes");
 const aiContentRoutes = require("./routes/aiContent.routes");
+const adminRoutes = require("./routes/admin.routes");
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/templates", templateRoutes);
 app.use("/api/portfolios", portfolioRoutes);
 app.use("/api/public/portfolios", publicPortfolioRoutes);

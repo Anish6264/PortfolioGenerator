@@ -16,17 +16,20 @@ const sendGeneratorError = (res, error, operation) => {
 
     if (error.status === 404 || error.statusCode === 404) {
         return res.status(404).json({
-            message: "Portfolio not found"
+            code: error.code || "PORTFOLIO_NOT_FOUND",
+            message: error.code === "TEMPLATE_NOT_FOUND" ? "Template not found" : "Portfolio not found"
         });
     }
 
     if (error.name === "ValidationError" || error.name === "CastError") {
         return res.status(400).json({
+            code: "GENERATION_ERROR",
             message: "Invalid portfolio data"
         });
     }
 
     return res.status(500).json({
+        code: "GENERATION_ERROR",
         message: "Server error"
     });
 };
@@ -57,6 +60,7 @@ const generatePortfolioZip = async (req, res) => {
 
         if (!isValidPortfolioId(req.params.portfolioId)) {
             return res.status(400).json({
+                code: "GENERATION_ERROR",
                 message: "Invalid portfolio ID"
             });
         }
@@ -68,6 +72,7 @@ const generatePortfolioZip = async (req, res) => {
 
         if (!portfolio) {
             return res.status(404).json({
+                code: "PORTFOLIO_NOT_FOUND",
                 message: "Portfolio not found"
             });
         }
@@ -76,6 +81,7 @@ const generatePortfolioZip = async (req, res) => {
 
         if (!template || !template.isActive) {
             return res.status(404).json({
+                code: "TEMPLATE_NOT_FOUND",
                 message: "Template not found"
             });
         }
@@ -109,8 +115,12 @@ const generatePortfolioZip = async (req, res) => {
         );
 
         if (!user) {
+            const currentUser = await User.findById(req.user.id).select("credits").lean();
             return res.status(402).json({
-                message: "Insufficient credits"
+                code: "INSUFFICIENT_CREDITS",
+                message: "Insufficient credits",
+                requiredCredits: generationCost,
+                availableCredits: Number.isInteger(currentUser?.credits) ? currentUser.credits : 0
             });
         }
 
@@ -160,7 +170,8 @@ const generatePortfolioZip = async (req, res) => {
 
             if (!res.headersSent) {
                 res.status(500).json({
-                    message: "Server error"
+                    code: "GENERATION_ERROR",
+                    message: "Portfolio generation failed"
                 });
             } else {
                 res.destroy();
@@ -266,6 +277,7 @@ const previewPortfolio = async (req, res) => {
 
         if (!isValidPortfolioId(req.params.portfolioId)) {
             return res.status(400).json({
+                code: "GENERATION_ERROR",
                 message: "Invalid portfolio ID"
             });
         }

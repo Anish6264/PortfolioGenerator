@@ -1,4 +1,5 @@
 const Portfolio = require("../models/Portfolio");
+const Template = require("../models/Template");
 const {
     createPortfolioWithUniqueSlug,
     updatePortfolioWithUniqueSlug
@@ -129,13 +130,17 @@ const validatePortfolioData = (data, partial = false) => {
     }
 
     if (isObject(data.personal)) {
-        for (const field of ["name", "title", "email", "phone", "location", "profileImage"]) {
+        for (const field of ["name", "title", "email", "phone", "location", "profileImage", "profileImageOriginalName"]) {
             if (
                 Object.prototype.hasOwnProperty.call(data.personal, field) &&
                 typeof data.personal[field] !== "string"
             ) {
                 return `personal.${field} must be a string`;
             }
+        }
+
+        if ((data.personal.profileImageOriginalName || "").length > 255) {
+            return "personal.profileImageOriginalName must be 255 characters or fewer";
         }
 
         if (!partial) {
@@ -284,6 +289,14 @@ const createPortfolio = async (req, res) => {
             return res.status(400).json({ message: validationError });
         }
 
+        const selectedTemplate = await Template.findById(portfolioData.template).select("isActive");
+        if (!selectedTemplate || !selectedTemplate.isActive) {
+            return res.status(404).json({
+                code: "TEMPLATE_NOT_FOUND",
+                message: "Template not found"
+            });
+        }
+
         const portfolio = await createPortfolioWithUniqueSlug(Portfolio, {
             ...portfolioData,
             status: "draft",
@@ -303,7 +316,7 @@ const getMyPortfolios = async (req, res) => {
     try {
         const portfolios = await Portfolio.find({
             user: req.user.id
-        }).populate("template", "name category");
+        }).populate("template", "name category isPremium creditCost");
 
         return res.status(200).json({
             portfolios
@@ -367,6 +380,27 @@ const updatePortfolio = async (req, res) => {
             return res.status(400).json({ message: validationError });
         }
 
+        if (Object.prototype.hasOwnProperty.call(normalizedUpdates, "template")) {
+            const currentPortfolio = await Portfolio.findOne({
+                _id: req.params.id,
+                user: req.user.id
+            }).select("template");
+
+            if (!currentPortfolio) {
+                return res.status(404).json({ message: "Portfolio not found" });
+            }
+
+            if (String(currentPortfolio.template) !== normalizedUpdates.template) {
+                const selectedTemplate = await Template.findById(normalizedUpdates.template).select("isActive");
+                if (!selectedTemplate || !selectedTemplate.isActive) {
+                    return res.status(404).json({
+                        code: "TEMPLATE_NOT_FOUND",
+                        message: "Template not found"
+                    });
+                }
+            }
+        }
+
         const portfolio = await Portfolio.findOneAndUpdate(
             {
                 _id: req.params.id,
@@ -423,6 +457,7 @@ const duplicatePortfolio = async (req, res) => {
             projects: clonePortfolioContent(source.projects),
             social: clonePortfolioContent(source.social),
             resume: source.resume,
+            resumeOriginalName: source.resumeOriginalName,
             primaryColor: source.primaryColor,
             secondaryColor: source.secondaryColor,
             backgroundColor: source.backgroundColor,

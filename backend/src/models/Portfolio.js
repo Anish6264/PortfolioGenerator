@@ -127,6 +127,12 @@ const portfolioSchema = new mongoose.Schema(
             default: ""
         },
 
+        // Kept separate from the path so existing resume consumers remain compatible.
+        resumeOriginalName: {
+            type: String,
+            default: ""
+        },
+
         personal: {
             name: {
                 type: String,
@@ -157,6 +163,11 @@ const portfolioSchema = new mongoose.Schema(
             },
 
             profileImage: {
+                type: String,
+                default: ""
+            },
+
+            profileImageOriginalName: {
                 type: String,
                 default: ""
             }

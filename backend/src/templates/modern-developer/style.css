@@ -1,3 +1,10 @@
+:root {
+    --portfolio-primary: #111827;
+    --portfolio-secondary: #6b7280;
+    --portfolio-background: #ffffff;
+    --portfolio-text: #1f2937;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -11,8 +18,8 @@ html {
 body {
     font-family: Arial, sans-serif;
     line-height: 1.6;
-    color: #1f2937;
-    background: #ffffff;
+    color: var(--portfolio-text);
+    background: var(--portfolio-background);
 }
 
 a {
@@ -31,7 +38,7 @@ a {
 .navbar {
     position: sticky;
     top: 0;
-    background: #ffffff;
+    background: var(--portfolio-background);
     border-bottom: 1px solid #e5e7eb;
     z-index: 1000;
 }
@@ -98,7 +105,7 @@ nav a:hover {
 
 .hero-description {
     max-width: 600px;
-    color: #6b7280;
+    color: var(--portfolio-secondary);
     margin-bottom: 30px;
 }
 
@@ -127,12 +134,12 @@ nav a:hover {
 }
 
 .primary-btn {
-    background: #111827;
+    background: var(--portfolio-primary);
     color: white;
 }
 
 .secondary-btn {
-    background: white;
+    background: var(--portfolio-background);
 }
 
 /* Sections */
@@ -160,7 +167,7 @@ nav a:hover {
 
 .about-content {
     max-width: 800px;
-    color: #6b7280;
+    color: var(--portfolio-secondary);
     font-size: 18px;
 }
 
@@ -197,7 +204,7 @@ nav a:hover {
 }
 
 .project-card p {
-    color: #6b7280;
+    color: var(--portfolio-secondary);
     margin-bottom: 15px;
 }
 
@@ -212,7 +219,7 @@ nav a:hover {
 }
 
 .contact-content p {
-    color: #6b7280;
+    color: var(--portfolio-secondary);
     margin-bottom: 25px;
 }
 

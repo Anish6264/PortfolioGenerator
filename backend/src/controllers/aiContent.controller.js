@@ -11,7 +11,11 @@ const requestGeneratedContent = async (req, res) => {
         return res.status(200).json(result);
     } catch (error) {
         if (error.status === 400) return res.status(400).json({ message: error.message });
-        console.error("AI content boundary error:", error);
+        if (error?.code === "AI_PROVIDER_ERROR" || error?.code === "AI_GENERATION_FAILED") {
+            console.error("AI content generation failed:", error.code);
+            return res.status(error.status || 502).json({ message: error.message });
+        }
+        console.error("AI content boundary failed:", error?.code || "AI_REQUEST_FAILED");
         return res.status(500).json({ message: "Unable to prepare content generation" });
     }
 };

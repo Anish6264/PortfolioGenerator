@@ -235,6 +235,11 @@ function Dashboard() {
 
     const handleGenerate = async (portfolio) => {
         if (generationLock.current) return;
+        const generationCost = Math.max(1, portfolio.template?.creditCost || 0);
+        if ((user?.credits ?? 0) < generationCost) {
+            setError(`You need ${generationCost} credits to generate this portfolio. You have ${user?.credits ?? 0}.`);
+            return;
+        }
         generationLock.current = true;
         const portfolioId = portfolio._id;
 
@@ -295,14 +300,24 @@ function Dashboard() {
 
             console.error(error);
             const status = error.response?.status;
-            const message = status === 402
-                ? "Insufficient credits. Add credits before downloading."
+            let errorBody = error.response?.data;
+            if (errorBody instanceof Blob) {
+                try {
+                    errorBody = JSON.parse(await errorBody.text());
+                } catch {
+                    errorBody = {};
+                }
+            }
+            const message = errorBody?.code === "INSUFFICIENT_CREDITS"
+                ? `Insufficient credits. This generation needs ${errorBody.requiredCredits} credits; your balance is ${errorBody.availableCredits}.`
                 : status === 401
                     ? "Your session has expired. Please sign in again."
                     : status === 403
                         ? "You do not have access to this portfolio."
-                        : status === 404
-                            ? "The portfolio or its template could not be found."
+                        : errorBody?.code === "TEMPLATE_NOT_FOUND"
+                            ? "This template is unavailable. Select an active template before generating."
+                            : errorBody?.code === "PORTFOLIO_NOT_FOUND" || status === 404
+                                ? "The portfolio could not be found."
                             : status === 400
                                 ? "This portfolio has invalid or incomplete data and could not be generated."
                                 : "Portfolio generation failed. Please try again.";
@@ -375,6 +390,9 @@ function Dashboard() {
                     </p>
 
                     <Link to="/profile">Profile / Account</Link>
+                    {user?.role === "admin" && (
+                        <p><Link to="/admin/templates">Admin: Manage Templates</Link></p>
+                    )}
 
                 </div>
 
@@ -596,8 +614,10 @@ function Dashboard() {
                                         <button
                                             onClick={() => handleGenerate(portfolio)}
                                             disabled={
-                                                generatingId !== null
+                                                generatingId !== null ||
+                                                (user?.credits ?? 0) < Math.max(1, portfolio.template?.creditCost || 0)
                                             }
+                                            title={`Generation cost: ${Math.max(1, portfolio.template?.creditCost || 0)} credits; balance: ${user?.credits ?? 0}`}
                                         >
                                             {
                                                 generatingId ===

@@ -6,9 +6,9 @@ import {
 } from "react-router-dom";
 
 import api from "../services/api";
+import { useAuth } from "../hooks/useAuth";
 import ProposedChangesReview from "../components/ProposedChangesReview";
 import { validateProposedPortfolioData } from "../utils/proposedPortfolioData";
-import buildAIRequest from "../utils/aiContentContext";
 
 const supportedSections = [
     "about",
@@ -35,6 +35,7 @@ const supportedFonts = [
 function Builder() {
 
     const navigate = useNavigate();
+    const { user } = useAuth();
 
     const { id } = useParams();
 
@@ -56,6 +57,8 @@ function Builder() {
     const [availableTemplates, setAvailableTemplates] =
         useState([]);
 
+    const [selectedTemplateDetails, setSelectedTemplateDetails] = useState(null);
+
     const [showTemplateSelector, setShowTemplateSelector] =
         useState(false);
 
@@ -65,6 +68,30 @@ function Builder() {
     const selectedTemplateId = isEditMode
         ? portfolioTemplateId
         : templateFromUrl;
+
+    useEffect(() => {
+        if (!selectedTemplateId) {
+            return undefined;
+        }
+
+        let isCurrent = true;
+        api.get(`/templates/${selectedTemplateId}`)
+            .then((response) => {
+                if (isCurrent) {
+                    setSelectedTemplateDetails({
+                        id: selectedTemplateId,
+                        template: response.data.template
+                    });
+                }
+            })
+            .catch(() => {
+                if (isCurrent) setSelectedTemplateDetails(null);
+            });
+
+        return () => {
+            isCurrent = false;
+        };
+    }, [selectedTemplateId]);
 
 
     // --------------------------------------------------
@@ -94,6 +121,16 @@ function Builder() {
     const [resumeFile, setResumeFile] =
         useState(null);
 
+    const [uploadedResumePath, setUploadedResumePath] =
+        useState("");
+
+    const [uploadedResumeOriginalName, setUploadedResumeOriginalName] = useState("");
+    const [profileImageOriginalName, setProfileImageOriginalName] = useState("");
+    const [profileImagePreview, setProfileImagePreview] = useState(null);
+    const [localProfileImagePreviewUrl, setLocalProfileImagePreviewUrl] = useState("");
+    const localProfileImagePreviewRef = useRef("");
+    const [assetAction, setAssetAction] = useState("");
+
     const [uploadingFiles, setUploadingFiles] =
         useState(false);
 
@@ -110,7 +147,8 @@ function Builder() {
             email: "",
             phone: "",
             location: "",
-            profileImage: ""
+            profileImage: "",
+            profileImageOriginalName: ""
         },
 
         shortIntro: "",
@@ -182,11 +220,59 @@ function Builder() {
     const [importMessage, setImportMessage] = useState("");
     const [githubReference, setGithubReference] = useState("");
     const [reviewProposal, setReviewProposal] = useState(null);
+    const reviewProposalRef = useRef(null);
+
+    useEffect(() => {
+        if (reviewProposal) {
+            reviewProposalRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    }, [reviewProposal]);
+
+    useEffect(() => {
+        const imageReference = formData.personal.profileImage;
+        if (!id || !/^uploads\//i.test(imageReference || "")) return undefined;
+
+        let active = true;
+        let objectUrl = "";
+        api.get(`/uploads/${id}/profile-image`, { responseType: "blob" })
+            .then((response) => {
+                if (!active) return;
+                objectUrl = URL.createObjectURL(response.data);
+                setProfileImagePreview({ reference: imageReference, url: objectUrl });
+                if (localProfileImagePreviewRef.current) {
+                    URL.revokeObjectURL(localProfileImagePreviewRef.current);
+                    localProfileImagePreviewRef.current = "";
+                    setLocalProfileImagePreviewUrl("");
+                }
+            })
+            .catch(() => {});
+
+        return () => {
+            active = false;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [formData.personal.profileImage, id]);
+
+    useEffect(() => () => {
+        if (localProfileImagePreviewRef.current) URL.revokeObjectURL(localProfileImagePreviewRef.current);
+    }, []);
 
     const pendingFiles = {
         ...(profileImageFile ? { profileImage: profileImageFile.name } : {}),
         ...(resumeFile ? { resume: resumeFile.name } : {})
     };
+    const hasUploadedResume = Boolean(
+        isEditMode && uploadedResumePath && portfolioLoaded && !loading && !uploadingFiles && !assetAction
+    );
+    const canAnalyzeResume = Boolean(hasUploadedResume && !importBusy);
+    const profileImageReference = formData.personal.profileImage || "";
+    const profileImagePreviewSrc = profileImageFile
+        ? localProfileImagePreviewUrl
+        : /^https?:\/\//i.test(profileImageReference)
+            ? profileImageReference
+            : profileImagePreview?.reference === profileImageReference
+                ? profileImagePreview.url
+                : "";
     const currentSnapshot = JSON.stringify({ ...formData, template: selectedTemplateId, ...(Object.keys(pendingFiles).length ? { pendingFiles } : {}) });
     const meaningfulData = Boolean(
         Object.values(formData.personal).some((value) => String(value || "").trim()) ||
@@ -256,41 +342,14 @@ function Builder() {
         }
     };
 
-    const showProposal = (source, data, replacements = {}) => {
+    const showProposal = (source, data, replacements = {}, repositories = []) => {
         const validationError = validateProposedPortfolioData(data);
         if (validationError) {
             setImportMessage("The imported content was invalid and has not changed your portfolio.");
             return;
         }
-        setReviewProposal({ source, data, replacements, id: Date.now() });
+        setReviewProposal({ source, data, replacements, repositories, id: Date.now() });
         setImportMessage("");
-    };
-
-    const handleResumeImport = async (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        if (file.type !== "application/pdf" || !file.name.toLowerCase().endsWith(".pdf") || file.size > 5 * 1024 * 1024) {
-            setImportMessage("Choose a PDF resume that is 5 MB or smaller.");
-            event.target.value = "";
-            return;
-        }
-
-        const upload = new FormData();
-        upload.append("resume", file);
-        setImportBusy("resume");
-        setImportMessage("");
-        try {
-            const response = await api.post("/import/resume", upload, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
-            if (response.data.proposedData) showProposal("resume", response.data.proposedData);
-            else setImportMessage(response.data.message || "No resume data was imported.");
-        } catch (requestError) {
-            setImportMessage(requestError.response?.data?.message || "Resume import is currently unavailable.");
-        } finally {
-            setImportBusy("");
-            event.target.value = "";
-        }
     };
 
     const handleGitHubImport = async () => {
@@ -298,7 +357,7 @@ function Builder() {
         setImportMessage("");
         try {
             const response = await api.post("/import/github", { reference: githubReference });
-            if (response.data.proposedData) showProposal("GitHub", response.data.proposedData);
+            if (response.data.proposedData) showProposal("GitHub", response.data.proposedData, {}, response.data.repositories || []);
             else if (Array.isArray(response.data.repositories) && response.data.repositories.length) {
                 setReviewProposal({ source: "GitHub", data: {}, repositories: response.data.repositories, id: Date.now() });
             }
@@ -310,33 +369,26 @@ function Builder() {
         }
     };
 
-    const handleAiContentRequest = async (type, input, context, target) => {
-        setImportBusy(`ai-${target}`);
+    const handleResumeAnalysis = async () => {
+        if (!canAnalyzeResume) {
+            setImportMessage(!id
+                ? "Create the portfolio before analyzing a resume."
+                : "Upload a PDF resume before analyzing it.");
+            return;
+        }
+
+        setImportBusy("resume-analysis");
         setImportMessage("");
         try {
-            const response = await api.post("/ai/content", buildAIRequest(type, input, context));
-            const content = response.data.content ?? response.data.proposedText;
-            if (typeof content !== "string") {
-                setImportMessage(response.data.message || "No generated content was returned.");
-                return;
-            }
-
-            const proposedText = content.trim();
-            if (!proposedText || proposedText.length > (response.data.maxLength || 4000)) {
-                setImportMessage("The generated content was invalid and has not changed your portfolio.");
-                return;
-            }
-            if (type === "about" || type === "shortIntro") {
-                showProposal("AI-assisted", { [type]: proposedText });
-            } else if (type === "skills") {
-                const skills = proposedText.split(/[\n,]+/).map((skill) => skill.trim()).filter(Boolean);
-                showProposal("AI-assisted", { skills });
+            const response = await api.post("/import/resume/analyze", { portfolioId: id });
+            const proposedData = response.data?.proposedData;
+            if (response.data?.status === "ready" && proposedData) {
+                showProposal("AI Resume Analysis", proposedData);
             } else {
-                const [section, index] = target.split(".");
-                showProposal("AI-assisted", {}, { [`${section}.${index}.description`]: proposedText });
+                setImportMessage(response.data?.message || "No resume analysis was returned.");
             }
         } catch (requestError) {
-            setImportMessage(requestError.response?.data?.message || "AI-assisted content is currently unavailable. Your data was not changed.");
+            setImportMessage(requestError.response?.data?.message || "Resume analysis is currently unavailable. Your data was not changed.");
         } finally {
             setImportBusy("");
         }
@@ -373,6 +425,10 @@ function Builder() {
                 const portfolio =
                     response.data.portfolio;
 
+                setUploadedResumePath(portfolio.resume || "");
+                setUploadedResumeOriginalName(portfolio.resumeOriginalName || "");
+                setProfileImageOriginalName(portfolio.personal?.profileImageOriginalName || "");
+
                 setPortfolioTemplateId(
                     portfolio.template?._id ||
                     portfolio.template
@@ -405,7 +461,9 @@ function Builder() {
 
                         profileImage:
                             portfolio.personal?.profileImage ||
-                            ""
+                            "",
+                        profileImageOriginalName:
+                            portfolio.personal?.profileImageOriginalName || ""
                     },
 
 
@@ -716,7 +774,7 @@ function Builder() {
     // PROFILE IMAGE
     // ==================================================
 
-    const handleProfileImageChange = (event) => {
+    const handleProfileImageChange = async (event) => {
 
         const file = event.target.files[0];
 
@@ -757,7 +815,45 @@ function Builder() {
 
 
         setError("");
+        setImportMessage("");
 
+        if (id) {
+            setUploadingFiles(true);
+            const uploadData = new FormData();
+            uploadData.append("profileImage", file);
+            try {
+                const uploadResponse = await api.post(`/uploads/${id}`, uploadData, {
+                    headers: { "Content-Type": "multipart/form-data" }
+                });
+                const uploadedPortfolio = uploadResponse.data?.portfolio;
+                const imageReference = uploadedPortfolio?.personal?.profileImage;
+                if (typeof imageReference !== "string" || !imageReference) {
+                    throw new Error("Profile image upload response was invalid");
+                }
+                setFormData((previous) => ({
+                    ...previous,
+                    personal: {
+                        ...previous.personal,
+                        profileImage: imageReference,
+                        profileImageOriginalName: uploadedPortfolio.personal.profileImageOriginalName || file.name
+                    }
+                }));
+                setProfileImageOriginalName(uploadedPortfolio.personal.profileImageOriginalName || file.name);
+                setProfileImageFile(null);
+                setImportMessage("Profile image uploaded.");
+                event.target.value = "";
+            } catch (uploadError) {
+                console.error("Profile image upload failed:", uploadError.response?.status || "request failed");
+                setError(uploadError.response?.data?.message || "Failed to upload profile image");
+            } finally {
+                setUploadingFiles(false);
+            }
+            return;
+        }
+
+        if (localProfileImagePreviewRef.current) URL.revokeObjectURL(localProfileImagePreviewRef.current);
+        localProfileImagePreviewRef.current = URL.createObjectURL(file);
+        setLocalProfileImagePreviewUrl(localProfileImagePreviewRef.current);
         setProfileImageFile(file);
     };
 
@@ -766,7 +862,7 @@ function Builder() {
     // RESUME
     // ==================================================
 
-    const handleResumeChange = (event) => {
+    const handleResumeChange = async (event) => {
 
         const file = event.target.files[0];
 
@@ -800,8 +896,83 @@ function Builder() {
 
 
         setError("");
+        setImportMessage("");
 
+        // Existing portfolios can upload immediately through the same authenticated
+        // endpoint used by Save/Update. Only the server-returned portfolio reference
+        // enables analysis; a browser file path is never used.
+        if (id) {
+            // Keep the old reference until a replacement has succeeded; uploadingFiles
+            // disables analysis while the replacement is in progress.
+            setUploadingFiles(true);
+            const uploadData = new FormData();
+            uploadData.append("resume", file);
+
+            try {
+                const uploadResponse = await api.post(`/uploads/${id}`, uploadData, {
+                    headers: { "Content-Type": "multipart/form-data" }
+                });
+                const resumePath = uploadResponse.data?.portfolio?.resume;
+                if (typeof resumePath !== "string" || !resumePath) {
+                    throw new Error("Resume upload response was invalid");
+                }
+                setUploadedResumePath(resumePath);
+                setUploadedResumeOriginalName(uploadResponse.data?.portfolio?.resumeOriginalName || file.name);
+                setResumeFile(null);
+                setImportMessage("Resume uploaded. You can now analyze it with AI.");
+                event.target.value = "";
+            } catch (uploadError) {
+                console.error("Resume upload failed:", uploadError.response?.status || "request failed");
+                setError(uploadError.response?.data?.message || "Failed to upload resume");
+            } finally {
+                setUploadingFiles(false);
+            }
+            return;
+        }
+
+        // A new portfolio has no server-owned ID until its initial create succeeds.
+        // Keep the existing create-and-upload flow for that case.
         setResumeFile(file);
+    };
+
+    const handleRemoveAsset = async (kind) => {
+        if (!id || assetAction || uploadingFiles) return;
+        const label = kind === "resume" ? "resume" : "profile image";
+        if (!window.confirm(`Remove this ${label}?`)) return;
+
+        setAssetAction(kind);
+        setError("");
+        setImportMessage("");
+        try {
+            const endpoint = kind === "resume" ? "resume" : "profile-image";
+            const response = await api.delete(`/uploads/${id}/${endpoint}`);
+            if (kind === "resume") {
+                setUploadedResumePath(response.data?.portfolio?.resume || "");
+                setUploadedResumeOriginalName(response.data?.portfolio?.resumeOriginalName || "");
+            } else {
+                const updatedPersonal = response.data?.portfolio?.personal || {};
+                setFormData((previous) => ({
+                    ...previous,
+                    personal: {
+                        ...previous.personal,
+                        profileImage: updatedPersonal.profileImage || "",
+                        profileImageOriginalName: updatedPersonal.profileImageOriginalName || ""
+                    }
+                }));
+                setProfileImageOriginalName(updatedPersonal.profileImageOriginalName || "");
+                setProfileImagePreview(null);
+                if (localProfileImagePreviewRef.current) {
+                    URL.revokeObjectURL(localProfileImagePreviewRef.current);
+                    localProfileImagePreviewRef.current = "";
+                    setLocalProfileImagePreviewUrl("");
+                }
+            }
+            setImportMessage(`${kind === "resume" ? "Resume" : "Profile image"} removed.`);
+        } catch (removeError) {
+            setError(removeError.response?.data?.message || `Failed to remove ${label}.`);
+        } finally {
+            setAssetAction("");
+        }
     };
 
 
@@ -1269,6 +1440,8 @@ function Builder() {
 
         setError("");
 
+        const resumeUploadPending = Boolean(resumeFile);
+
         saveInProgress.current = true;
         setLoading(true);
 
@@ -1366,7 +1539,7 @@ function Builder() {
                 }
 
 
-                await api.post(
+                const uploadResponse = await api.post(
                     `/uploads/${portfolioId}`,
                     uploadData,
                     {
@@ -1376,6 +1549,23 @@ function Builder() {
                         }
                     }
                 );
+
+                if (resumeFile) {
+                    setUploadedResumePath(uploadResponse.data?.portfolio?.resume || "");
+                    setUploadedResumeOriginalName(uploadResponse.data?.portfolio?.resumeOriginalName || resumeFile.name);
+                }
+                if (profileImageFile) {
+                    const uploadedPersonal = uploadResponse.data?.portfolio?.personal || {};
+                    setProfileImageOriginalName(uploadedPersonal.profileImageOriginalName || profileImageFile.name);
+                    setFormData((previous) => ({
+                        ...previous,
+                        personal: {
+                            ...previous.personal,
+                            profileImage: uploadedPersonal.profileImage || previous.personal.profileImage,
+                            profileImageOriginalName: uploadedPersonal.profileImageOriginalName || profileImageFile.name
+                        }
+                    }));
+                }
 
 
                 setUploadingFiles(false);
@@ -1388,7 +1578,12 @@ function Builder() {
             // Finished
             // ------------------------------------------
 
-            navigate("/dashboard");
+            if (resumeUploadPending) {
+                if (!isEditMode) navigate(`/builder/edit/${portfolioId}`);
+                else setImportMessage("Resume uploaded. You can now analyze it with AI.");
+            } else {
+                navigate("/dashboard");
+            }
 
         } catch (error) {
 
@@ -1471,17 +1666,19 @@ function Builder() {
             {importMessage && <p role="status">{importMessage}</p>}
 
             {reviewProposal && (
-                <ProposedChangesReview
-                    key={reviewProposal.id}
-                    proposal={reviewProposal}
-                    currentData={formData}
-                    onAccept={applyProposal}
-                    onReject={() => {
-                        setReviewProposal(null);
-                        setImportMessage("Proposal rejected. Your existing portfolio data was kept.");
-                    }}
-                    onCancel={() => setReviewProposal(null)}
-                />
+                <div ref={reviewProposalRef}>
+                    <ProposedChangesReview
+                        key={reviewProposal.id}
+                        proposal={reviewProposal}
+                        currentData={formData}
+                        onAccept={applyProposal}
+                        onReject={() => {
+                            setReviewProposal(null);
+                            setImportMessage("Proposal rejected. Your existing portfolio data was kept.");
+                        }}
+                        onCancel={() => setReviewProposal(null)}
+                    />
+                </div>
             )}
 
             {isEditMode && (
@@ -1526,6 +1723,22 @@ function Builder() {
                                 ))}
                             </select>
                         </div>
+                    )}
+                </section>
+            )}
+
+            {selectedTemplateDetails?.id === selectedTemplateId &&
+                selectedTemplateDetails.template?.isPremium && (
+                <section aria-label="Premium template credits">
+                    <h2>Premium Template</h2>
+                    <p>
+                        Cost: {selectedTemplateDetails.template.creditCost} credits per generation
+                    </p>
+                    <p>Your credits: {user?.credits ?? 0}</p>
+                    {(user?.credits ?? 0) < selectedTemplateDetails.template.creditCost && (
+                        <p role="status">
+                            You need {selectedTemplateDetails.template.creditCost} credits to generate this template.
+                        </p>
                     )}
                 </section>
             )}
@@ -1804,7 +2017,7 @@ function Builder() {
                     <div>
 
                         <label>
-                            Profile Image
+                            {formData.personal.profileImage ? "Replace Image" : "Upload Profile Image"}
                         </label>
 
                         <br />
@@ -1812,10 +2025,31 @@ function Builder() {
                         <input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
+                            disabled={uploadingFiles || Boolean(assetAction)}
                             onChange={
                                 handleProfileImageChange
                             }
                         />
+
+                        {profileImagePreviewSrc && (
+                            <p>
+                                <img src={profileImagePreviewSrc} alt="Profile image preview" style={{ maxWidth: "160px", maxHeight: "160px", objectFit: "cover" }} />
+                            </p>
+                        )}
+
+                        {formData.personal.profileImage && profileImageOriginalName && (
+                            <p role="status">{profileImageOriginalName}</p>
+                        )}
+
+                        {formData.personal.profileImage && id && (
+                            <button
+                                type="button"
+                                onClick={() => handleRemoveAsset("profileImage")}
+                                disabled={uploadingFiles || Boolean(assetAction)}
+                            >
+                                {assetAction === "profileImage" ? "Removing Image..." : "Remove Profile Image"}
+                            </button>
+                        )}
 
 
                         {profileImageFile && (
@@ -1840,7 +2074,7 @@ function Builder() {
                     <div>
 
                         <label>
-                            Resume PDF
+                            {uploadedResumePath ? "Replace Resume" : "Choose PDF"}
                         </label>
 
                         <br />
@@ -1848,11 +2082,30 @@ function Builder() {
                         <input
                             type="file"
                             accept="application/pdf"
+                            disabled={uploadingFiles || Boolean(assetAction)}
                             onChange={
                                 handleResumeChange
                             }
                         />
 
+
+                        {uploadedResumePath && !uploadingFiles && (
+                            <p role="status">
+                                {uploadedResumeOriginalName || "Uploaded resume"}
+                            </p>
+                        )}
+
+                        {uploadingFiles && <p role="status">Uploading file...</p>}
+
+                        {uploadedResumePath && id && (
+                            <button
+                                type="button"
+                                onClick={() => handleRemoveAsset("resume")}
+                                disabled={uploadingFiles || Boolean(assetAction)}
+                            >
+                                {assetAction === "resume" ? "Removing Resume..." : "Remove Resume"}
+                            </button>
+                        )}
 
                         {resumeFile && (
 
@@ -1867,17 +2120,19 @@ function Builder() {
 
                     </div>
 
-                    <div>
-                        <h3>Import from Resume</h3>
-                        <p>Upload a PDF to prepare a reviewed import. Existing fields are not replaced automatically.</p>
-                        <input
-                            type="file"
-                            accept="application/pdf,.pdf"
-                            onChange={handleResumeImport}
-                            disabled={Boolean(importBusy)}
-                        />
-                        {importBusy === "resume" && <span role="status"> Preparing resume import...</span>}
-                    </div>
+                    {hasUploadedResume && (
+                        <div>
+                            <h3>Analyze Resume with AI</h3>
+                            <p>Upload a PDF resume to prepare changes for review.</p>
+                            <button
+                                type="button"
+                                onClick={handleResumeAnalysis}
+                                disabled={!canAnalyzeResume}
+                            >
+                                {importBusy === "resume-analysis" ? "Analyzing resume..." : "Analyze Resume with AI"}
+                            </button>
+                        </div>
+                    )}
 
 
                     <p>
@@ -1909,18 +2164,6 @@ function Builder() {
                         }
                     />
 
-                    <button
-                        type="button"
-                        onClick={() => handleAiContentRequest("shortIntro", formData.shortIntro, {
-                            title: formData.personal.title,
-                            skills: formData.skills
-                        }, "shortIntro")}
-                        disabled={Boolean(importBusy)}
-                    >
-                        {importBusy === "ai-shortIntro" ? "Preparing..." : "AI Assist - Short Introduction"}
-                    </button>
-
-
                     <textarea
                         name="about"
                         placeholder="About You"
@@ -1931,17 +2174,6 @@ function Builder() {
                             handleBasicChange
                         }
                     />
-
-                    <button
-                        type="button"
-                        onClick={() => handleAiContentRequest("about", formData.about, {
-                            title: formData.personal.title,
-                            skills: formData.skills
-                        }, "about")}
-                        disabled={Boolean(importBusy)}
-                    >
-                        {importBusy === "ai-about" ? "Preparing..." : "AI Assist - Summary"}
-                    </button>
 
                 </section>
 
@@ -1955,18 +2187,6 @@ function Builder() {
                     <h2>
                         Skills
                     </h2>
-
-                    <button
-                        type="button"
-                        onClick={() => handleAiContentRequest("skills", formData.skills.join(", "), {
-                            title: formData.personal.title,
-                            skills: formData.skills
-                        }, "skills")}
-                        disabled={Boolean(importBusy)}
-                    >
-                        {importBusy === "ai-skills" ? "Preparing..." : "AI Assist - Skills"}
-                    </button>
-
 
                     <input
                         placeholder="Enter a skill"
@@ -2238,19 +2458,6 @@ function Builder() {
 
                                 <button
                                     type="button"
-                                    onClick={() => handleAiContentRequest("experienceDescription", experience.description, {
-                                        role: experience.role,
-                                        title: formData.personal.title,
-                                        existingDescription: experience.description.slice(0, 500)
-                                    }, `experience.${index}`)}
-                                    disabled={Boolean(importBusy)}
-                                >
-                                    {importBusy === `ai-experience.${index}` ? "Preparing..." : "AI Assist - Experience Description"}
-                                </button>
-
-
-                                <button
-                                    type="button"
                                     onClick={() =>
                                         removeExperience(
                                             index
@@ -2345,19 +2552,6 @@ function Builder() {
                                         )
                                     }
                                 />
-
-                                <button
-                                    type="button"
-                                    onClick={() => handleAiContentRequest("projectDescription", project.description, {
-                                        projectTitle: project.title,
-                                        technologies: project.technologies,
-                                        existingDescription: project.description.slice(0, 500)
-                                    }, `projects.${projectIndex}`)}
-                                    disabled={Boolean(importBusy)}
-                                >
-                                    {importBusy === `ai-projects.${projectIndex}` ? "Preparing..." : "AI Assist - Project Description"}
-                                </button>
-
 
                                 {/* Technologies */}
 

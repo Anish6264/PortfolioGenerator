@@ -677,6 +677,7 @@ const generatePortfolio = async (
     if (!storedPortfolio) {
         const error = new Error("Portfolio not found");
         error.status = 404;
+        error.code = "PORTFOLIO_NOT_FOUND";
         throw error;
 
     }
@@ -698,11 +699,10 @@ const generatePortfolio = async (
         !template ||
         !template.isActive
     ) {
-
-        throw new Error(
-            "Template not found"
-        );
-
+        const error = new Error("Template not found");
+        error.status = 404;
+        error.code = "TEMPLATE_NOT_FOUND";
+        throw error;
     }
 
 
