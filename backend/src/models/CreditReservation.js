@@ -14,6 +14,11 @@ const creditReservationSchema = new mongoose.Schema(
             default: null,
             index: true
         },
+        template: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Template",
+            default: null
+        },
         contentVersion: {
             type: Number,
             default: null,

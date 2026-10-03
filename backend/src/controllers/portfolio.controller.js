@@ -15,7 +15,6 @@ const editablePortfolioFields = [
     "experience",
     "projects",
     "social",
-    "resume",
     "primaryColor",
     "secondaryColor",
     "backgroundColor",
@@ -27,6 +26,24 @@ const editablePortfolioFields = [
     "seoTitle",
     "seoDescription"
 ];
+
+const editablePersonalFields = ["name", "title", "email", "phone", "location"];
+const editableSocialFields = ["github", "linkedin", "twitter"];
+const pickFields = (value, fields) => Object.fromEntries(
+    fields.filter((field) => Object.prototype.hasOwnProperty.call(value, field))
+        .map((field) => [field, value[field]])
+);
+const sanitizePortfolioPayload = (body) => {
+    if (!isObject(body)) return body;
+    const payload = pickFields(body, editablePortfolioFields);
+    if (Object.prototype.hasOwnProperty.call(body, "personal")) {
+        payload.personal = isObject(body.personal) ? pickFields(body.personal, editablePersonalFields) : body.personal;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "social")) {
+        payload.social = isObject(body.social) ? pickFields(body.social, editableSocialFields) : body.social;
+    }
+    return payload;
+};
 
 const supportedSections = [
     "about",
@@ -51,6 +68,16 @@ const isValidColor = (value) =>
 
 const isObject = (value) =>
     value !== null && typeof value === "object" && !Array.isArray(value);
+
+const isSafeExternalUrl = (value) => {
+    if (typeof value !== "string" || !value.trim()) return false;
+    try {
+        const parsed = new URL(value.trim());
+        return ["http:", "https:"].includes(parsed.protocol) && Boolean(parsed.hostname) && !parsed.username && !parsed.password;
+    } catch {
+        return false;
+    }
+};
 
 const trimStrings = (value) => {
     if (typeof value === "string") {
@@ -148,6 +175,12 @@ const validatePortfolioData = (data, partial = false) => {
 
         if ((data.personal.profileImageOriginalName || "").length > 255) {
             return "personal.profileImageOriginalName must be 255 characters or fewer";
+        }
+        const personalLimits = { name: 100, title: 120, email: 254, phone: 100, location: 150, profileImage: 2048 };
+        for (const [field, maxLength] of Object.entries(personalLimits)) {
+            if (typeof data.personal[field] === "string" && data.personal[field].length > maxLength) {
+                return `personal.${field} exceeds the allowed length`;
+            }
         }
 
         if (!partial) {
@@ -264,13 +297,65 @@ const validatePortfolioData = (data, partial = false) => {
         return "seoDescription must be 200 characters or fewer";
     }
 
+    if (Object.prototype.hasOwnProperty.call(data, "shortIntro") && data.shortIntro.length > 1000) {
+        return "shortIntro must be 1000 characters or fewer";
+    }
+    if (Object.prototype.hasOwnProperty.call(data, "about") && data.about.length > 4000) {
+        return "about must be 4000 characters or fewer";
+    }
+
+    if (Object.prototype.hasOwnProperty.call(data, "skills")) {
+        if (data.skills.length > 100 || data.skills.some((item) => typeof item !== "string" || item.length > 100)) {
+            return "skills must contain at most 100 text values of 100 characters or fewer";
+        }
+    }
+
+    const rowFields = {
+        education: { degree: 200, institution: 200, startYear: 30, endYear: 30, description: 2000 },
+        experience: { company: 200, role: 200, startDate: 50, endDate: 50, description: 2000 },
+        projects: { title: 120, description: 2000, liveUrl: 2048, githubUrl: 2048 }
+    };
+    for (const [field, allowedFields] of Object.entries(rowFields)) {
+        if (!Object.prototype.hasOwnProperty.call(data, field)) continue;
+        if (data[field].length > 50) return `${field} must contain at most 50 entries`;
+        for (const row of data[field]) {
+            if (!isObject(row) || Object.keys(row).some((key) => !Object.prototype.hasOwnProperty.call(allowedFields, key) && !(field === "projects" && key === "technologies"))) {
+                return `${field} contains an unsupported entry`;
+            }
+            for (const [key, value] of Object.entries(row)) {
+                if (field === "projects" && key === "technologies") {
+                    if (!Array.isArray(value) || value.length > 30 || value.some((item) => typeof item !== "string" || item.length > 100)) {
+                        return "Project technologies must contain at most 30 text values of 100 characters or fewer";
+                    }
+                    continue;
+                }
+                if (typeof value !== "string" || value.length > allowedFields[key]) {
+                    return `Invalid ${field} field length`;
+                }
+                if (["liveUrl", "githubUrl"].includes(key) && value && !isSafeExternalUrl(value)) {
+                    return `${field}.${key} must use HTTP or HTTPS`;
+                }
+            }
+        }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(data, "social")) {
+        const socialFields = ["github", "linkedin", "twitter"];
+        if (Object.keys(data.social).some((key) => !socialFields.includes(key))) return "social contains an unsupported field";
+        for (const [key, value] of Object.entries(data.social)) {
+            if (typeof value !== "string" || value.length > 2048 || (value && !isSafeExternalUrl(value))) {
+                return `social.${key} must be an HTTP or HTTPS URL of 2048 characters or fewer`;
+            }
+        }
+    }
+
     return null;
 };
 
 const isValidPortfolioId = (id) => /^[a-f\d]{24}$/i.test(id || "");
 
 const sendPortfolioError = (res, error, operation) => {
-    console.error(`${operation} error:`, error);
+    console.error(`${operation} error:`, error?.name || "PORTFOLIO_OPERATION_ERROR", error?.code || "UNKNOWN");
 
     if (error.name === "ValidationError" || error.name === "CastError") {
         return res.status(400).json({
@@ -289,7 +374,7 @@ const sendPortfolioError = (res, error, operation) => {
 
 const createPortfolio = async (req, res) => {
     try {
-        const portfolioData = trimStrings(req.body || {});
+        const portfolioData = trimStrings(sanitizePortfolioPayload(req.body || {}));
         const validationError = validatePortfolioData(portfolioData);
 
         if (validationError) {
@@ -333,7 +418,7 @@ const getMyPortfolios = async (req, res) => {
             portfolios: portfolios.map(serializeDownloadState)
         });
     } catch (error) {
-        console.error("Get portfolios error:", error);
+        console.error("Get portfolios error:", error?.name || "PORTFOLIO_LIST_ERROR", error?.code || "UNKNOWN");
 
         return res.status(500).json({
             message: "Server error"
@@ -362,7 +447,7 @@ const getPortfolioById = async (req, res) => {
             portfolio: serializeDownloadState(portfolio)
         });
     } catch (error) {
-        console.error("Get portfolio error:", error);
+        console.error("Get portfolio error:", error?.name || "PORTFOLIO_LOOKUP_ERROR", error?.code || "UNKNOWN");
 
         return res.status(500).json({
             message: "Server error"
@@ -389,12 +474,19 @@ const updatePortfolio = async (req, res) => {
         if (!existingPortfolio) return res.status(404).json({ message: "Portfolio not found" });
 
         const normalizedUpdates = trimStrings(updates);
-        if (normalizedUpdates.personal) {
+        if (Object.prototype.hasOwnProperty.call(normalizedUpdates, "personal")) {
+            if (!isObject(normalizedUpdates.personal)) {
+                return res.status(400).json({ message: "personal must be an object" });
+            }
+            const safePersonalUpdates = pickFields(normalizedUpdates.personal, editablePersonalFields);
+            const existingPersonal = existingPortfolio.personal?.toObject?.() || existingPortfolio.personal || {};
             normalizedUpdates.personal = {
-                ...(existingPortfolio.personal?.toObject?.() || existingPortfolio.personal || {}),
-                ...normalizedUpdates.personal,
+                ...existingPersonal,
+                ...safePersonalUpdates,
                 name: existingPortfolio.personal.name,
-                email: existingPortfolio.personal.email
+                email: existingPortfolio.personal.email,
+                profileImage: existingPortfolio.personal.profileImage || "",
+                profileImageOriginalName: existingPortfolio.personal.profileImageOriginalName || ""
             };
         }
         const validationError = validatePortfolioData(normalizedUpdates, true);
@@ -618,7 +710,7 @@ const deletePortfolio = async (req, res) => {
             message: "Portfolio deleted successfully"
         });
     } catch (error) {
-        console.error("Delete portfolio error:", error);
+        console.error("Delete portfolio error:", error?.name || "PORTFOLIO_DELETE_ERROR", error?.code || "UNKNOWN");
 
         return res.status(500).json({
             message: "Server error"

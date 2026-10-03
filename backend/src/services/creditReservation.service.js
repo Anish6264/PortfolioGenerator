@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const CreditReservation = require("../models/CreditReservation");
 const Portfolio = require("../models/Portfolio");
 const User = require("../models/User");
+const { recordCreditDebit, recordCreditRefund } = require("./creditTransaction.service");
 
 const CREDIT_RESERVATION_OPERATIONS = new Set([
     "github_project_import",
@@ -24,21 +25,23 @@ const reserveCredits = async ({ userId, credits, operation }) => {
     try {
         await session.withTransaction(async () => {
             reservation = null;
-            const user = await User.findOneAndUpdate(
-                { _id: userId, credits: { $gte: credits, $mod: [1, 0] } },
-                { $inc: { credits: -credits } },
-                { returnDocument: "after", session }
-            ).select("credits");
-
-            if (!user) {
+            const reservationId = new mongoose.Types.ObjectId();
+            const debit = await recordCreditDebit({
+                userId,
+                amount: credits,
+                type: operation === "portfolio_generation" ? "DOWNLOAD" : "GITHUB_IMPORT",
+                reason: operation === "portfolio_generation" ? "Portfolio download" : "GitHub import",
+                referenceId: String(reservationId), session
+            });
+            if (!debit) {
                 const currentUser = await User.findById(userId).select("credits").session(session).lean();
                 availableCredits = Number.isInteger(currentUser?.credits) ? currentUser.credits : 0;
                 return;
             }
 
-            availableCredits = user.credits;
+            availableCredits = debit.balanceAfter;
             const [created] = await CreditReservation.create(
-                [{ user: userId, operation, credits, status: "reserved" }],
+                [{ _id: reservationId, user: userId, operation, credits, status: "reserved" }],
                 { session }
             );
             reservation = created;
@@ -75,7 +78,7 @@ const reservePortfolioDownload = async ({ userId, portfolioId, templateId, credi
                 ? portfolio.paidDownloadVersion
                 : 0;
             if (paidDownloadVersion === contentVersion) {
-                result = { status: "already_paid" };
+                result = { status: "already_paid", contentVersion, paidDownloadVersion };
                 return;
             }
             if (portfolio.downloadReservation) {
@@ -87,13 +90,12 @@ const reservePortfolioDownload = async ({ userId, portfolioId, templateId, credi
                 return;
             }
 
-            const user = await User.findOneAndUpdate(
-                { _id: userId, credits: { $gte: credits, $mod: [1, 0] } },
-                { $inc: { credits: -credits } },
-                { returnDocument: "after", session }
-            ).select("credits");
-
-            if (!user) {
+            const reservationId = new mongoose.Types.ObjectId();
+            const debit = await recordCreditDebit({
+                userId, amount: credits, type: "DOWNLOAD", reason: "Portfolio download",
+                referenceId: String(reservationId), session, portfolioId, templateId
+            });
+            if (!debit) {
                 const currentUser = await User.findById(userId).select("credits").session(session).lean();
                 result = {
                     status: "insufficient_credits",
@@ -103,7 +105,7 @@ const reservePortfolioDownload = async ({ userId, portfolioId, templateId, credi
             }
 
             const [reservation] = await CreditReservation.create(
-                [{ user: userId, portfolio: portfolioId, contentVersion, operation: "portfolio_generation", credits, status: "reserved" }],
+                [{ _id: reservationId, user: userId, portfolio: portfolioId, template: templateId, contentVersion, operation: "portfolio_generation", credits, status: "reserved" }],
                 { session }
             );
             const claim = await Portfolio.updateOne(
@@ -125,7 +127,13 @@ const reservePortfolioDownload = async ({ userId, portfolioId, templateId, credi
                 throw error;
             }
 
-            result = { status: "reserved", reservation, availableCredits: user.credits };
+            result = {
+                status: "reserved",
+                reservation,
+                contentVersion,
+                paidDownloadVersion,
+                availableCredits: debit.balanceAfter
+            };
         });
     } catch (error) {
         if (error.code !== "PORTFOLIO_DOWNLOAD_CLAIM_LOST") throw error;
@@ -180,12 +188,18 @@ const completeCreditReservation = async (reservationId, userId, status, expected
             }
 
             if (status === "refunded") {
-                const result = await User.updateOne(
-                    { _id: userId },
-                    { $inc: { credits: reservation.credits } },
-                    { session }
-                );
-                if (result.matchedCount !== 1) throw new Error("Credit reservation user was not found");
+                const originalType = reservation.operation === "portfolio_generation" ? "DOWNLOAD" : "GITHUB_IMPORT";
+                const refund = await recordCreditRefund({
+                    userId,
+                    amount: reservation.credits,
+                    reason: reservation.operation === "portfolio_generation" ? "Portfolio download refund" : "GitHub import refund",
+                    referenceId: String(reservation._id),
+                    originalType,
+                    session,
+                    portfolioId: reservation.portfolio,
+                    templateId: reservation.template
+                });
+                if (!refund) throw new Error("Credit reservation user was not found");
             }
 
             if (reservation.operation === "portfolio_generation" && reservation.portfolio) {

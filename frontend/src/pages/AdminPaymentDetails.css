@@ -1,0 +1,14 @@
+.admin-payment-details { width: min(1000px, calc(100% - 2rem)); margin: 2rem auto; }
+.admin-payment-details-header,
+.admin-payment-details-header nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.admin-payment-details-header h1 { margin-top: 0.25rem; }
+.admin-payment-section { margin: 1.25rem 0; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 0.65rem; }
+.admin-payment-section h2 { margin-top: 0; }
+.admin-payment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.admin-payment-grid div { min-width: 0; }
+.admin-payment-grid dt { color: #6b7280; font-size: 0.9rem; }
+.admin-payment-grid dd { margin: 0.25rem 0 0; overflow-wrap: anywhere; }
+.admin-payment-details-error { color: #b91c1c; }
+@media (max-width: 600px) {
+    .admin-payment-details-header { align-items: flex-start; flex-direction: column; }
+}

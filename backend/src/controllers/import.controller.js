@@ -48,12 +48,12 @@ const importResume = async (req, res) => {
         return res.status(result.status === "not_configured" ? 503 : 200).json(result);
     } catch (error) {
         if (error.status === 400) return res.status(400).json({ message: error.message });
-        console.error("Resume import boundary error:", error);
+        console.error("Resume import boundary error:", error?.name || "RESUME_IMPORT_ERROR", error?.code || "UNKNOWN");
         return res.status(500).json({ message: "Unable to process this resume" });
     } finally {
         if (req.file?.path) {
             await fs.unlink(req.file.path).catch((error) => {
-                if (error.code !== "ENOENT") console.error("Resume import cleanup failed:", error.message);
+                if (error.code !== "ENOENT") console.error("Resume import cleanup failed:", error?.code || error?.name || "UPLOAD_CLEANUP_FAILED");
             });
         }
     }

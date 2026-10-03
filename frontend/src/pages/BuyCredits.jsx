@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
@@ -41,6 +41,8 @@ const loadRazorpayCheckout = () => {
 
 function BuyCredits() {
     const { user, refreshUser } = useAuth();
+    const location = useLocation();
+    const returnToBilling = location.state?.from === "/credits";
     const [processingPack, setProcessingPack] = useState(null);
     const [stage, setStage] = useState("");
     const [error, setError] = useState("");
@@ -155,7 +157,7 @@ function BuyCredits() {
 
     return (
         <main className="buy-credits-page">
-            <p><Link to="/dashboard">← Back to Dashboard</Link></p>
+            <p><Link to={returnToBilling ? "/credits" : "/dashboard"}>{returnToBilling ? "← Back to Credits & Billing" : "← Back to Dashboard"}</Link></p>
             <h1>Buy Credits</h1>
             <p className="buy-credits-balance">Current balance: {user?.credits ?? 0} credits</p>
             <p>Choose a credit pack for generating premium portfolios.</p>

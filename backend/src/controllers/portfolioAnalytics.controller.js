@@ -31,7 +31,7 @@ const getPortfolioAnalytics = async (req, res) => {
         }
         return res.status(200).json({ ...result, range });
     } catch (error) {
-        console.error("Get portfolio analytics error:", error);
+        console.error("Get portfolio analytics error:", error?.name || "PORTFOLIO_ANALYTICS_ERROR", error?.code || "UNKNOWN");
         return res.status(500).json({ message: "Unable to load portfolio analytics" });
     }
 };

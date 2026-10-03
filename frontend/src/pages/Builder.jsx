@@ -1728,18 +1728,7 @@ function Builder() {
             autosaveRevision.current += 1;
             setAutosaveStatus("Saved");
 
-
-            const portfolioId =
-                savedPortfolio._id;
-
-
-            console.log(
-                updatingExisting
-                    ? "Portfolio updated:"
-                    : "Portfolio created:",
-                portfolioId
-            );
-
+            const portfolioId = savedPortfolio._id;
 
             // ------------------------------------------
             // Upload Files
@@ -1818,7 +1807,7 @@ function Builder() {
                 if (!updatingExisting) navigate(`/builder/edit/${portfolioId}`);
                 else setImportMessage("Resume uploaded. You can now analyze it with AI.");
             } else {
-                navigate("/dashboard");
+                navigate(`/portfolio/${portfolioId}/preview`, { state: { fromBuilder: true } });
             }
 
         } catch (error) {
@@ -1888,6 +1877,17 @@ function Builder() {
                     : "Add your information below."}
 
             </p>
+
+            {(id || createdPortfolioId) && (
+                <p>
+                    <button
+                        type="button"
+                        onClick={() => navigate(`/portfolio/${id || createdPortfolioId}/preview`, { state: { fromBuilder: true } })}
+                    >
+                        Preview Portfolio
+                    </button>
+                </p>
+            )}
 
 
             {error && (

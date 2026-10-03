@@ -19,12 +19,19 @@ const PORTFOLIO_GENERATION_OPERATION = "portfolio_generation";
 const isValidPortfolioId = (id) => /^[a-f\d]{24}$/i.test(id || "");
 
 const sendGeneratorError = (res, error, operation) => {
-    console.error(`${operation} error:`, error);
+    console.error(`${operation} error:`, error?.name || "GENERATOR_ERROR", error?.code || "UNKNOWN");
 
     if (error.status === 404 || error.statusCode === 404) {
         return res.status(404).json({
             code: error.code || "PORTFOLIO_NOT_FOUND",
             message: error.code === "TEMPLATE_NOT_FOUND" ? "Template not found" : "Portfolio not found"
+        });
+    }
+
+    if (error.status === 409 || error.statusCode === 409) {
+        return res.status(409).json({
+            code: error.code || "PORTFOLIO_CHANGED",
+            message: "The portfolio changed before the download started. Please retry."
         });
     }
 
@@ -147,7 +154,9 @@ const generatePortfolioZip = async (req, res) => {
 
         const result = await generatePortfolio(
             req.params.portfolioId,
-            req.user.id
+            req.user.id,
+            {},
+            { contentVersion: reserved.contentVersion, paidDownloadVersion: reserved.paidDownloadVersion }
         );
 
 
@@ -289,7 +298,7 @@ const generatePortfolioZip = async (req, res) => {
             return sendGeneratorError(res, error, "Generate portfolio");
         }
 
-        console.error("Generate portfolio error:", error);
+        console.error("Generate portfolio error:", error?.name || "GENERATOR_ERROR", error?.code || "UNKNOWN");
         res.destroy();
     } finally {
         if (reservationHeartbeat) clearInterval(reservationHeartbeat);
@@ -330,7 +339,7 @@ const previewPortfolio = async (req, res) => {
             return sendGeneratorError(res, error, "Preview portfolio");
         }
 
-        console.error("Preview portfolio error:", error);
+        console.error("Preview portfolio error:", error?.name || "PREVIEW_ERROR", error?.code || "UNKNOWN");
         res.destroy();
     }
 };

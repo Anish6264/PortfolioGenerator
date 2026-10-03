@@ -14,6 +14,29 @@ const sanitizeOriginalFilename = (filename, fallback) => {
     return safeName || fallback;
 };
 
+const hasSupportedFileSignature = async (filePath, kind) => {
+    let handle;
+    try {
+        handle = await fs.open(filePath, "r");
+        const header = Buffer.alloc(12);
+        const { bytesRead } = await handle.read(header, 0, header.length, 0);
+        const bytes = header.subarray(0, bytesRead);
+        if (kind === "resume") return bytes.length >= 5 && bytes.subarray(0, 5).toString("ascii") === "%PDF-";
+        if (kind === "profileImage") {
+            return (
+                (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) ||
+                (bytes.length >= 8 && bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) ||
+                (bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP")
+            );
+        }
+        return false;
+    } catch {
+        return false;
+    } finally {
+        await handle?.close().catch(() => {});
+    }
+};
+
 const resolveManagedUploadPath = (storedReference, kind) => {
     if (typeof storedReference !== "string" || !storedReference.trim()) return null;
     const normalized = storedReference.replaceAll("\\", "/");
@@ -78,4 +101,4 @@ const getManagedUploadPath = async (storedReference, kind) => {
     return stats.isFile() ? realPath : null;
 };
 
-module.exports = { sanitizeOriginalFilename, removeManagedUpload, getManagedUploadPath };
+module.exports = { sanitizeOriginalFilename, hasSupportedFileSignature, removeManagedUpload, getManagedUploadPath };

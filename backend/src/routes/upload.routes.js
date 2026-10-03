@@ -3,6 +3,7 @@ const express = require("express");
 const upload = require("../middleware/upload.middleware");
 
 const protect = require("../middleware/auth.middleware");
+const createRateLimiter = require("../middleware/rateLimit.middleware");
 
 const {
     uploadPortfolioFiles,
@@ -13,14 +14,17 @@ const {
 
 
 const router = express.Router();
+const limitPortfolioUploads = createRateLimiter({ name: "portfolio-upload", windowMs: 15 * 60 * 1000, max: 20, byUser: true });
+const limitPortfolioAssets = createRateLimiter({ name: "portfolio-assets", windowMs: 15 * 60 * 1000, max: 30, byUser: true });
 
-router.get("/:portfolioId/profile-image", protect, getPortfolioProfileImage);
-router.delete("/:portfolioId/resume", protect, removePortfolioResume);
-router.delete("/:portfolioId/profile-image", protect, removePortfolioProfileImage);
+router.get("/:portfolioId/profile-image", protect, limitPortfolioAssets, getPortfolioProfileImage);
+router.delete("/:portfolioId/resume", protect, limitPortfolioAssets, removePortfolioResume);
+router.delete("/:portfolioId/profile-image", protect, limitPortfolioAssets, removePortfolioProfileImage);
 
 router.post(
     "/:portfolioId",
     protect,
+    limitPortfolioUploads,
     upload.fields([
         {
             name: "profileImage",

@@ -5,6 +5,7 @@ import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import TemplatePricing from "../components/TemplatePricing";
 import { getTemplateGenerationCost } from "../utils/templatePricing";
+import { downloadPortfolioZip } from "../utils/downloadPortfolio";
 
 function Dashboard() {
 
@@ -256,46 +257,7 @@ function Dashboard() {
 
             setError("");
 
-            const response = await api.post(
-                `/generator/${portfolioId}`,
-                {},
-                {
-                    responseType: "blob"
-                }
-            );
-
-            const blob = new Blob(
-                [response.data],
-                {
-                    type: "application/zip"
-                }
-            );
-
-            const url =
-                window.URL.createObjectURL(blob);
-
-            const link =
-                document.createElement("a");
-
-            link.href = url;
-
-            const fileBase = (portfolio.personal?.name || portfolio.personal?.title || "portfolio")
-                .normalize("NFKD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, "-")
-                .replace(/^-+|-+$/g, "")
-                .slice(0, 70)
-                .replace(/-+$/g, "") || "portfolio";
-            link.download = `${fileBase}-portfolio.zip`;
-
-            document.body.appendChild(link);
-
-            link.click();
-
-            link.remove();
-
-            window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+            await downloadPortfolioZip(portfolio);
 
             try {
                 const portfoliosResponse = await api.get("/portfolios");
@@ -406,14 +368,14 @@ function Dashboard() {
                     </p>
 
                     <p>
-                        Credits: {user?.credits ?? 0}
+                        <Link to="/credits">Credits: {user?.credits ?? 0} · Billing history</Link>
                     </p>
 
                     <p><Link to="/buy-credits">Buy Credits</Link></p>
 
                     <Link to="/profile">Profile / Account</Link>
                     {user?.role === "admin" && (
-                        <p><Link to="/admin/templates">Admin: Manage Templates</Link></p>
+                        <p><Link to="/admin">Admin Dashboard</Link>{" · "}<Link to="/admin/templates">Manage Templates</Link></p>
                     )}
 
                 </div>
@@ -623,7 +585,7 @@ function Dashboard() {
                                         {" "}
 
 <Link
-    to={`/portfolio-preview/${portfolio._id}`}
+    to={`/portfolio/${portfolio._id}/preview`}
 >
     Preview
 </Link>

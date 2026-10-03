@@ -49,7 +49,7 @@ const getPublicPortfolio = async (req, res) => {
             hasResume: Boolean(generated.resumePath)
         });
     } catch (error) {
-        console.error("Get public portfolio error:", error);
+        console.error("Get public portfolio error:", error?.name || "PUBLIC_PORTFOLIO_ERROR", error?.code || "UNKNOWN");
         if (error.status === 404) return res.status(404).json({ message: "Portfolio not found" });
         return res.status(500).json({ message: "Unable to load portfolio" });
     }
@@ -62,7 +62,7 @@ const sendAsset = (kind) => async (req, res) => {
         if (!portfolio) return res.status(404).json({ message: "Portfolio not found" });
 
         const storedPath = kind === "resume" ? portfolio.resume : portfolio.personal?.profileImage;
-        const assetPath = resolvePortfolioAssetPath(storedPath);
+        const assetPath = await resolvePortfolioAssetPath(storedPath, kind === "image" ? "profileImage" : kind);
         const extension = assetPath ? path.extname(assetPath).toLowerCase() : "";
         const accepted = kind === "resume" ? [".pdf"] : [".jpg", ".jpeg", ".png", ".webp"];
         if (!assetPath || !accepted.includes(extension) || !fs.existsSync(assetPath)) {
@@ -77,7 +77,7 @@ const sendAsset = (kind) => async (req, res) => {
             if (error && !res.headersSent) res.status(error.statusCode === 404 ? 404 : 500).json({ message: "File not found" });
         });
     } catch (error) {
-        console.error(`Get public ${kind} error:`, error);
+        console.error(`Get public ${kind} error:`, error?.name || "PUBLIC_ASSET_ERROR", error?.code || "UNKNOWN");
         return res.status(500).json({ message: "Unable to load file" });
     }
 };
@@ -103,7 +103,7 @@ const trackAndRedirectProjectLink = async (req, res) => {
         recordEvent(portfolio._id, "project-click");
         return res.redirect(302, target);
     } catch (error) {
-        console.error("Track portfolio project link error:", error);
+        console.error("Track portfolio project link error:", error?.name || "PUBLIC_PROJECT_LINK_ERROR", error?.code || "UNKNOWN");
         return res.status(500).json({ message: "Unable to open project link" });
     }
 };

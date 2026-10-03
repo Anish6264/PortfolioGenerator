@@ -1,0 +1,34 @@
+.credits-billing-page { width: min(1100px, calc(100% - 2rem)); margin: 2rem auto; }
+.credits-billing-header,
+.credits-billing-pagination,
+.credits-billing-pagination > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.credits-billing-buy {
+    display: inline-block;
+    padding: 0.7rem 1rem;
+    border-radius: 0.5rem;
+    background: #2563eb;
+    color: white;
+    text-decoration: none;
+}
+.credits-billing-filter { display: flex; align-items: center; gap: 0.6rem; margin: 1.5rem 0 1rem; }
+.credits-billing-table-wrap { overflow-x: auto; }
+.credits-billing-table { width: 100%; border-collapse: collapse; }
+.credits-billing-table th,
+.credits-billing-table td { padding: 0.8rem; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
+.credits-billing-table th { color: #4b5563; font-size: 0.9rem; }
+.credits-billing-detail { display: block; margin-top: 0.25rem; color: #6b7280; font-size: 0.85rem; }
+.credits-positive { color: #15803d; }
+.credits-negative,
+.credits-billing-error { color: #b91c1c; }
+.credits-billing-pagination { margin-top: 1rem; flex-wrap: wrap; }
+.credits-billing-pagination > div { justify-content: flex-end; }
+@media (max-width: 600px) {
+    .credits-billing-header { align-items: flex-start; }
+    .credits-billing-table th,
+    .credits-billing-table td { padding: 0.65rem 0.45rem; }
+}

@@ -2,8 +2,8 @@ const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const mongoose = require("mongoose");
 const PaymentTransaction = require("../models/PaymentTransaction");
-const User = require("../models/User");
 const CREDIT_PACKS = require("../config/creditPacks");
+const { recordCreditPurchase } = require("../services/creditTransaction.service");
 
 let razorpayClient;
 
@@ -122,15 +122,16 @@ const verifyPayment = async (req, res) => {
                     throw Object.assign(new Error("Payment order is no longer pending"), { code: "PAYMENT_NOT_PENDING" });
                 }
 
-                const updatedUser = await User.updateOne(
-                    { _id: req.user.id },
-                    { $inc: { credits: matchingPack.credits } },
-                    { session }
-                );
-
-                if (updatedUser.matchedCount !== 1) {
-                    throw new Error("Payment user not found");
-                }
+                const creditEntry = await recordCreditPurchase({
+                    userId: req.user.id,
+                    amount: matchingPack.credits,
+                    reason: "Credit pack purchase",
+                    referenceId: String(transaction._id),
+                    paymentTransactionId: transaction._id,
+                    metadata: { razorpayOrderId: transaction.razorpayOrderId },
+                    session
+                });
+                if (!creditEntry) throw new Error("Payment user not found");
                 fulfilled = true;
             });
         } finally {
@@ -162,7 +163,7 @@ const verifyPayment = async (req, res) => {
                 // Keep the public response generic if the recovery lookup fails.
             }
         }
-        console.error("Verify payment error:", error);
+        console.error("Verify payment error:", error?.name || "PAYMENT_VERIFICATION_ERROR", error?.code || "UNKNOWN");
         return res.status(error.status === 503 ? 503 : 502).json({
             code: error.status === 503 ? "PAYMENT_SERVICE_UNAVAILABLE" : "PAYMENT_VERIFICATION_UNAVAILABLE",
             message: error.status === 503 ? "Payment service is not configured" : "Unable to verify payment"
@@ -206,7 +207,7 @@ const createOrder = async (req, res) => {
             pack: { id: packId, credits: pack.credits }
         });
     } catch (error) {
-        console.error("Create payment order error:", error);
+        console.error("Create payment order error:", error?.name || "PAYMENT_ORDER_ERROR", error?.code || "UNKNOWN");
         return res.status(error.status || 502).json({
             message: error.status === 503 ? error.message : "Unable to create payment order"
         });

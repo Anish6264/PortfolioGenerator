@@ -4,6 +4,7 @@ const path = require("path");
 const Portfolio = require("../models/Portfolio");
 const Template = require("../models/Template");
 const templateContract = require("./templateContract");
+const { getManagedUploadPath } = require("./uploadAssets.service");
 
 const supportedSections = [
     "about",
@@ -131,14 +132,12 @@ const safeExternalUrl = (value) => {
     }
 };
 
-const resolvePortfolioAssetPath = (storedPath) => {
-    if (typeof storedPath !== "string" || !storedPath.trim()) return null;
-    const uploadRoot = path.resolve(__dirname, "../uploads");
-    const resolved = path.resolve(__dirname, "..", storedPath);
-    const relative = path.relative(uploadRoot, resolved);
-    return relative && relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
-        ? resolved
-        : null;
+const resolvePortfolioAssetPath = async (storedPath, kind) => {
+    try {
+        return await getManagedUploadPath(storedPath, kind);
+    } catch {
+        return null;
+    }
 };
 
 const getSafeColor = (value, fallback) =>
@@ -655,7 +654,8 @@ const replacePlaceholders = (html, portfolio, imageAvailable, resumeAvailable) =
 const generatePortfolio = async (
     portfolioId,
     userId,
-    requiredState = {}
+    requiredState = {},
+    requiredDownloadVersion = null
 ) => {
 
 
@@ -663,21 +663,34 @@ const generatePortfolio = async (
     // Find portfolio
     // ----------------------------------------------
 
-    const storedPortfolio =
-        await Portfolio.findOne({
-
-            _id: portfolioId,
-
-            user: userId,
-            ...requiredState
-
-        });
+    const portfolioFilter = { _id: portfolioId, user: userId, ...requiredState };
+    if (requiredDownloadVersion) {
+        const { contentVersion, paidDownloadVersion } = requiredDownloadVersion;
+        portfolioFilter.$and = [
+            ...(Array.isArray(portfolioFilter.$and) ? portfolioFilter.$and : []),
+            {
+                $or: [
+                    { contentVersion },
+                    { contentVersion: { $exists: false } },
+                    { contentVersion: null }
+                ]
+            },
+            {
+                $or: [
+                    { paidDownloadVersion },
+                    { paidDownloadVersion: { $exists: false } },
+                    { paidDownloadVersion: null }
+                ]
+            }
+        ];
+    }
+    const storedPortfolio = await Portfolio.findOne(portfolioFilter);
 
 
     if (!storedPortfolio) {
         const error = new Error("Portfolio not found");
-        error.status = 404;
-        error.code = "PORTFOLIO_NOT_FOUND";
+        error.status = requiredDownloadVersion ? 409 : 404;
+        error.code = requiredDownloadVersion ? "PORTFOLIO_CHANGED" : "PORTFOLIO_NOT_FOUND";
         throw error;
 
     }
@@ -727,7 +740,7 @@ const generatePortfolio = async (
         portfolio.personal?.profileImage
     ) {
 
-        profileImagePath = resolvePortfolioAssetPath(portfolio.personal.profileImage);
+        profileImagePath = await resolvePortfolioAssetPath(portfolio.personal.profileImage, "profileImage");
 
         if (!profileImagePath || ![".jpg", ".jpeg", ".png", ".webp"].includes(path.extname(profileImagePath).toLowerCase())) {
             profileImagePath = null;
@@ -764,7 +777,7 @@ const generatePortfolio = async (
         portfolio.resume
     ) {
 
-        resumePath = resolvePortfolioAssetPath(portfolio.resume);
+        resumePath = await resolvePortfolioAssetPath(portfolio.resume, "resume");
 
         if (!resumePath || path.extname(resumePath).toLowerCase() !== ".pdf") {
             resumePath = null;

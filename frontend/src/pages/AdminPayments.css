@@ -1,0 +1,51 @@
+.admin-payments-page { width: min(1200px, calc(100% - 2rem)); margin: 2rem auto; }
+.admin-payments-header,
+.admin-payments-header nav,
+.admin-payments-filters,
+.admin-payments-filters form,
+.admin-payments-pagination,
+.admin-payments-pagination > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.admin-payments-header h1 { margin-top: 0.25rem; }
+.admin-payments-filters { align-items: flex-end; margin: 1.5rem 0; flex-wrap: wrap; }
+.admin-payments-filters form { align-items: flex-end; }
+.admin-payments-filters label { display: grid; gap: 0.35rem; }
+.admin-payments-filters input,
+.admin-payments-filters select {
+    min-width: 220px;
+    padding: 0.6rem 0.7rem;
+    border: 1px solid #9ca3af;
+    border-radius: 0.4rem;
+    font: inherit;
+}
+.admin-payments-filters button,
+.admin-payments-pagination button {
+    padding: 0.6rem 0.85rem;
+    border: 1px solid #9ca3af;
+    border-radius: 0.4rem;
+    background: white;
+    font: inherit;
+    cursor: pointer;
+}
+.admin-payments-filters button:disabled,
+.admin-payments-pagination button:disabled { cursor: wait; opacity: 0.6; }
+.admin-payments-table-wrap { overflow-x: auto; }
+.admin-payments-table { width: 100%; border-collapse: collapse; }
+.admin-payments-table th,
+.admin-payments-table td { padding: 0.7rem; border-bottom: 1px solid #e5e7eb; text-align: left; white-space: nowrap; }
+.admin-payments-table th { color: #4b5563; font-size: 0.9rem; }
+.admin-payments-table td span { display: block; margin-top: 0.2rem; color: #6b7280; font-size: 0.85rem; }
+.admin-payments-pagination { margin-top: 1rem; flex-wrap: wrap; }
+.admin-payments-pagination > div { justify-content: flex-end; }
+.admin-payments-error { color: #b91c1c; }
+@media (max-width: 650px) {
+    .admin-payments-header { align-items: flex-start; flex-direction: column; }
+    .admin-payments-filters,
+    .admin-payments-filters form { align-items: stretch; flex-direction: column; }
+    .admin-payments-filters input,
+    .admin-payments-filters select { min-width: 0; }
+}

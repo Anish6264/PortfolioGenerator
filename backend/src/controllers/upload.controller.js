@@ -2,6 +2,7 @@ const path = require("path");
 const Portfolio = require("../models/Portfolio");
 const {
     getManagedUploadPath,
+    hasSupportedFileSignature,
     removeManagedUpload,
     sanitizeOriginalFilename
 } = require("../services/uploadAssets.service");
@@ -77,6 +78,12 @@ const uploadPortfolioFiles = async (req, res) => {
     let portfolioSaved = false;
 
     try {
+        for (const item of uploadedFiles) {
+            if (!await hasSupportedFileSignature(item.file.path, item.kind)) {
+                await cleanupNewUploads();
+                return res.status(400).json({ message: "Uploaded file content does not match its supported type." });
+            }
+        }
         const result = await findOwnedPortfolio(req.params.portfolioId, req.user.id);
         if (result.error) {
             await cleanupNewUploads();

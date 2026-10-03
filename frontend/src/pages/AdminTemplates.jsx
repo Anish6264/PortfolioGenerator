@@ -53,6 +53,14 @@ function AdminTemplates() {
     return (
         <main>
             <p><Link to="/dashboard">Back to Dashboard</Link></p>
+            <nav aria-label="Admin navigation">
+                <Link to="/admin">Dashboard</Link>{" "}
+                <Link to="/admin/users">Users</Link>{" "}
+                <Link to="/admin/payments">Payments</Link>{" "}
+                <Link to="/admin/credit-transactions">Credit Transactions</Link>{" "}
+                <Link to="/admin/portfolios">Portfolios</Link>{" "}
+                <Link to="/admin/templates" aria-current="page">Templates</Link>
+            </nav>
             <h1>Template Management</h1>
             <p>Manage template details, credit costs, and availability.</p>
             {error && <p role="alert">{error}</p>}

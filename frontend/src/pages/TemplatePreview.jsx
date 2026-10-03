@@ -131,6 +131,7 @@ const navigate = useNavigate();
 
             <iframe
                 title="Template Preview"
+                sandbox="allow-scripts"
                 srcDoc={preview.html
                     .replace(/<link\b[^>]*href=["']style\.css["'][^>]*>/i, `<style>${preview.css}</style>`)
                     .replace(/<script\b[^>]*src=["']script\.js["'][^>]*><\/script>/i, `<script>${preview.js}</script>`)}

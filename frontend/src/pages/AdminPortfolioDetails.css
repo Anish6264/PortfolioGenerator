@@ -1,0 +1,18 @@
+.admin-portfolio-detail { width: min(1100px, calc(100% - 2rem)); margin: 2rem auto; }
+.admin-portfolio-detail-header, .admin-portfolio-detail-header nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.admin-portfolio-detail-header nav { flex-wrap: wrap; }
+.admin-portfolio-detail-header h1 { margin-top: .25rem; }
+.admin-portfolio-section { margin: 1.25rem 0; padding: 1rem; border: 1px solid #e5e7eb; border-radius: .65rem; }
+.admin-portfolio-section h2 { margin-top: 0; }
+.admin-portfolio-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.admin-portfolio-grid div { min-width: 0; }
+.admin-portfolio-grid dt { color: #6b7280; font-size: .9rem; }
+.admin-portfolio-grid dd { margin: .25rem 0 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.admin-portfolio-text-summary { margin-top: 1rem; }
+.admin-portfolio-text-summary h3 { margin: 0 0 .4rem; font-size: 1rem; }
+.admin-portfolio-text-summary p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.admin-portfolio-table-wrap { overflow-x: auto; }
+.admin-portfolio-table-wrap table { width: 100%; border-collapse: collapse; }
+.admin-portfolio-table-wrap th, .admin-portfolio-table-wrap td { padding: .7rem; border-bottom: 1px solid #e5e7eb; text-align: left; white-space: nowrap; }
+.admin-portfolio-detail-error { color: #b91c1c; }
+@media (max-width: 650px) { .admin-portfolio-detail-header { align-items: flex-start; flex-direction: column; } }

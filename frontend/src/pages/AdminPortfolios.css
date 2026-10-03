@@ -1,0 +1,19 @@
+.admin-portfolios-page { width: min(1300px, calc(100% - 2rem)); margin: 2rem auto; }
+.admin-portfolios-header, .admin-portfolios-header nav, .admin-portfolios-filters, .admin-portfolios-filters form, .admin-portfolios-pagination, .admin-portfolios-pagination > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.admin-portfolios-header h1 { margin-top: .25rem; }
+.admin-portfolios-header nav { flex-wrap: wrap; }
+.admin-portfolios-filters { align-items: flex-end; margin: 1.5rem 0; flex-wrap: wrap; }
+.admin-portfolios-filters form { align-items: flex-end; }
+.admin-portfolios-filters label { display: grid; gap: .35rem; }
+.admin-portfolios-filters input, .admin-portfolios-filters select { min-width: 160px; max-width: 260px; padding: .6rem .7rem; border: 1px solid #9ca3af; border-radius: .4rem; font: inherit; }
+.admin-portfolios-filters button, .admin-portfolios-pagination button { padding: .6rem .85rem; border: 1px solid #9ca3af; border-radius: .4rem; background: white; font: inherit; cursor: pointer; }
+.admin-portfolios-filters button:disabled, .admin-portfolios-pagination button:disabled { cursor: wait; opacity: .6; }
+.admin-portfolios-table-wrap { overflow-x: auto; }
+.admin-portfolios-table-wrap table { width: 100%; border-collapse: collapse; }
+.admin-portfolios-table-wrap th, .admin-portfolios-table-wrap td { padding: .7rem; border-bottom: 1px solid #e5e7eb; text-align: left; white-space: nowrap; }
+.admin-portfolios-table-wrap th { color: #4b5563; font-size: .9rem; }
+.admin-portfolios-table-wrap td span { display: block; margin-top: .2rem; color: #6b7280; font-size: .85rem; }
+.admin-portfolios-pagination { margin-top: 1rem; flex-wrap: wrap; }
+.admin-portfolios-pagination > div { justify-content: flex-end; }
+.admin-portfolios-error { color: #b91c1c; }
+@media (max-width: 750px) { .admin-portfolios-header { align-items: flex-start; flex-direction: column; } .admin-portfolios-filters, .admin-portfolios-filters form { align-items: stretch; flex-direction: column; } .admin-portfolios-filters input, .admin-portfolios-filters select { min-width: 0; max-width: none; } }

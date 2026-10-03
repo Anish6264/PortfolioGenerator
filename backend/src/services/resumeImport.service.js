@@ -2,6 +2,7 @@ const path = require("path");
 const fs = require("fs/promises");
 const Portfolio = require("../models/Portfolio");
 const { analyzeResumePdf } = require("./resumeAnalysis.provider");
+const { hasSupportedFileSignature } = require("./uploadAssets.service");
 
 const limits = {
     name: 100, title: 120, email: 254, phone: 100, location: 150,
@@ -215,6 +216,11 @@ const analyzePortfolioResume = async (portfolioId, userId) => {
 const parseResume = async (file) => {
     if (!file || file.mimetype !== "application/pdf" || path.extname(file.originalname || "").toLowerCase() !== ".pdf" || (Number.isFinite(file.size) && file.size > 5 * 1024 * 1024)) {
         const error = new Error("Upload a PDF resume of 5 MB or smaller");
+        error.status = 400;
+        throw error;
+    }
+    if (!await hasSupportedFileSignature(file.path, "resume")) {
+        const error = new Error("Upload a valid PDF resume of 5 MB or smaller");
         error.status = 400;
         throw error;
     }

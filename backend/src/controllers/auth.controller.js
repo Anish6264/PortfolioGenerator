@@ -17,10 +17,18 @@ const registerUser = async (req, res) => {
             });
         }
 
-        // Check password length
-        if (password.length < 6) {
+        if (
+            name.length > 100 ||
+            !/^[\p{L}\p{M}][\p{L}\p{M}\p{Zs}'\u2019-]*$/u.test(name) ||
+            email.length > 254 ||
+            !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        ) {
+            return res.status(400).json({ message: "Enter a valid name and email address" });
+        }
+
+        if (password.length < 6 || Buffer.byteLength(password, "utf8") > 72) {
             return res.status(400).json({
-                message: "Password must be at least 6 characters"
+                message: "Password must be at least 6 characters and no more than 72 UTF-8 bytes"
             });
         }
 
@@ -54,7 +62,10 @@ const registerUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("Registration error:", error);
+        if (error.code === 11000) {
+            return res.status(409).json({ message: "User with this email already exists" });
+        }
+        console.error("Registration error:", error?.name || "REGISTRATION_ERROR", error?.code || "UNKNOWN");
 
         return res.status(500).json({
             message: "Server error"
@@ -70,7 +81,7 @@ const loginUser = async (req, res) => {
             : "";
 
         // Check required fields
-        if (!email || typeof password !== "string" || !password) {
+        if (!email || email.length > 254 || typeof password !== "string" || !password || Buffer.byteLength(password, "utf8") > 1024) {
             return res.status(400).json({
                 message: "Email and password are required"
             });
@@ -121,7 +132,7 @@ const loginUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("Login error:", error);
+        console.error("Login error:", error?.name || "LOGIN_ERROR", error?.code || "UNKNOWN");
 
         return res.status(500).json({
             message: "Server error"
@@ -150,7 +161,7 @@ const getCurrentUser = async (req, res) => {
             }
         });
     } catch (error) {
-        console.error("Get current user error:", error);
+        console.error("Get current user error:", error?.name || "CURRENT_USER_ERROR", error?.code || "UNKNOWN");
 
         return res.status(500).json({
             message: "Server error"
@@ -161,12 +172,22 @@ const getCurrentUser = async (req, res) => {
 const updateProfile = async (req, res) => {
     const body = req.body || {};
     const updates = {};
+    const allowedFields = new Set(["name", "email", "avatar"]);
+
+    if (Object.keys(body).some((field) => !allowedFields.has(field))) {
+        return res.status(400).json({ message: "Unsupported profile field" });
+    }
 
     if (Object.prototype.hasOwnProperty.call(body, "name")) {
-        if (typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 100) {
-            return res.status(400).json({ message: "Name is required and must be 100 characters or fewer" });
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        if (
+            !name ||
+            name.length > 100 ||
+            !/^[\p{L}\p{M}][\p{L}\p{M}\p{Zs}'\u2019-]*$/u.test(name)
+        ) {
+            return res.status(400).json({ message: "Enter a valid name of 100 characters or fewer" });
         }
-        updates.name = body.name.trim();
+        updates.name = name;
     }
 
     if (Object.prototype.hasOwnProperty.call(body, "email")) {
@@ -228,8 +249,55 @@ const updateProfile = async (req, res) => {
         if (error.name === "ValidationError" || error.name === "CastError") {
             return res.status(400).json({ message: "Invalid profile information" });
         }
-        console.error("Update profile error:", error);
+        console.error("Update profile error:", error?.name || "PROFILE_UPDATE_ERROR", error?.code || "UNKNOWN");
         return res.status(500).json({ message: "Server error" });
+    }
+};
+
+const changePassword = async (req, res) => {
+    const body = req.body || {};
+    if (Object.keys(body).some((field) => !["currentPassword", "newPassword"].includes(field))) {
+        return res.status(400).json({ message: "Unsupported password change field" });
+    }
+
+    const { currentPassword, newPassword } = body;
+    if (
+        typeof currentPassword !== "string" ||
+        !currentPassword ||
+        Buffer.byteLength(currentPassword, "utf8") > 1024 ||
+        typeof newPassword !== "string" ||
+        newPassword.length < 6 ||
+        newPassword.length > 128 ||
+        Buffer.byteLength(newPassword, "utf8") > 72
+    ) {
+        return res.status(400).json({ message: "Enter your current password and a new password of at least 6 characters and no more than 72 UTF-8 bytes" });
+    }
+
+    try {
+        const user = await User.findById(req.user.id).select("+password");
+        if (!user) {
+            return res.status(401).json({ message: "Unable to change password for this account" });
+        }
+
+        const currentMatches = await bcrypt.compare(currentPassword, user.password);
+        if (!currentMatches) {
+            return res.status(400).json({ message: "Current password is incorrect" });
+        }
+
+        const samePassword = await bcrypt.compare(newPassword, user.password);
+        if (samePassword) {
+            return res.status(400).json({ message: "New password must be different from your current password" });
+        }
+
+        const password = await bcrypt.hash(newPassword, 10);
+        const updateResult = await User.updateOne({ _id: req.user.id }, { $set: { password } });
+        if (updateResult.matchedCount !== 1) {
+            return res.status(401).json({ message: "Unable to change password for this account" });
+        }
+        return res.status(200).json({ message: "Password changed successfully" });
+    } catch (error) {
+        console.error("Change password error:", error.name || "PASSWORD_CHANGE_ERROR");
+        return res.status(500).json({ message: "Unable to change password right now" });
     }
 };
 
@@ -237,5 +305,6 @@ module.exports = {
     registerUser,
     loginUser,
     getCurrentUser,
-    updateProfile
+    updateProfile,
+    changePassword
 };

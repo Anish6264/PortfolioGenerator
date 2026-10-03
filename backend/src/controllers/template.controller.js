@@ -29,7 +29,7 @@ const getTemplates = async (req, res) => {
             templates
         });
     } catch (error) {
-        console.error("Get templates error:", error.message);
+        console.error("Get templates error:", error?.name || "TEMPLATE_LIST_ERROR", error?.code || "UNKNOWN");
 
         return res.status(500).json({
             message: "Server error"
@@ -51,7 +51,7 @@ const getTemplateById = async (req, res) => {
             template
         });
     } catch (error) {
-        console.error("Get template error:", error.message);
+        console.error("Get template error:", error?.name || "TEMPLATE_LOOKUP_ERROR", error?.code || "UNKNOWN");
 
         return res.status(500).json({
             message: "Server error"
@@ -78,7 +78,7 @@ const getTemplatePreview = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Template preview error:", error.code === "INVALID_TEMPLATE" ? "Template files are unavailable" : error.message);
+        console.error("Template preview error:", error?.code || error?.name || "TEMPLATE_PREVIEW_ERROR");
 
         return res.status(500).json({
             message: "Template preview is unavailable"

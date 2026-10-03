@@ -19,7 +19,7 @@ const connectDB = async () => {
             console.warn("MongoDB transaction support could not be determined");
         }
     } catch (error) {
-        console.error("MongoDB connection failed:", error.message);
+        console.error("MongoDB connection failed:", error?.name || "MONGODB_CONNECTION_ERROR", error?.code || "UNKNOWN");
         process.exit(1);
     }
 };

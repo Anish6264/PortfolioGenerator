@@ -114,6 +114,14 @@ function AdminTemplateEdit() {
     return (
         <main>
             <p><Link to="/admin/templates">Back to templates</Link></p>
+            <nav aria-label="Admin navigation">
+                <Link to="/admin">Dashboard</Link>{" "}
+                <Link to="/admin/users">Users</Link>{" "}
+                <Link to="/admin/payments">Payments</Link>{" "}
+                <Link to="/admin/credit-transactions">Credit Transactions</Link>{" "}
+                <Link to="/admin/portfolios">Portfolios</Link>{" "}
+                <Link to="/admin/templates">Templates</Link>
+            </nav>
             <h1>Edit Template</h1>
             {error && <p role="alert">{error}</p>}
             {message && <p role="status">{message}</p>}

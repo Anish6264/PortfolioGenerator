@@ -1,0 +1,12 @@
+.admin-credit-detail { width: min(1100px, calc(100% - 2rem)); margin: 2rem auto; }
+.admin-credit-detail-header, .admin-credit-detail-header nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.admin-credit-detail-header nav { flex-wrap: wrap; }
+.admin-credit-detail-header h1 { margin-top: .25rem; }
+.admin-credit-detail-section { margin: 1.25rem 0; padding: 1rem; border: 1px solid #e5e7eb; border-radius: .65rem; }
+.admin-credit-detail-section h2 { margin-top: 0; }
+.admin-credit-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.admin-credit-detail-grid div { min-width: 0; }
+.admin-credit-detail-grid dt { color: #6b7280; font-size: .9rem; }
+.admin-credit-detail-grid dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+.admin-credit-detail-error { color: #b91c1c; }
+@media (max-width: 650px) { .admin-credit-detail-header { align-items: flex-start; flex-direction: column; } }

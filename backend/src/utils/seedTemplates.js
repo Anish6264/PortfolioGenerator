@@ -8,7 +8,7 @@ const connectDB = async () => {
         await mongoose.connect(process.env.MONGO_URI);
         console.log("MongoDB connected");
     } catch (error) {
-        console.error("MongoDB connection failed:", error.message);
+        console.error("MongoDB connection failed:", error?.name || "MONGODB_CONNECTION_ERROR", error?.code || "UNKNOWN");
         process.exit(1);
     }
 };
@@ -119,7 +119,7 @@ const seedTemplates = async () => {
         await mongoose.connection.close();
         process.exit(0);
     } catch (error) {
-        console.error("Template seed error:", error.message);
+        console.error("Template seed error:", error?.name || "TEMPLATE_SEED_ERROR", error?.code || "UNKNOWN");
 
         await mongoose.connection.close();
         process.exit(1);

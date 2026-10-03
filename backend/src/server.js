@@ -9,6 +9,13 @@ const {
 
 const PORT = process.env.PORT || 5000;
 
+if (typeof process.env.JWT_SECRET !== "string" || process.env.JWT_SECRET.length === 0) {
+    throw new Error("JWT_SECRET must be configured");
+}
+if (typeof process.env.MONGO_URI !== "string" || !process.env.MONGO_URI.trim()) {
+    throw new Error("MONGO_URI must be configured");
+}
+
 const cleanExpiredCreditReservations = async () => {
     try {
         const githubRefunded = await refundExpiredGitHubReservations();

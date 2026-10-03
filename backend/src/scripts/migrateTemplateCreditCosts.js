@@ -18,7 +18,7 @@ const migrateTemplateCreditCosts = async () => {
         );
         console.log(`Updated ${result.modifiedCount} template credit cost(s) to the minimum.`);
     } catch (error) {
-        console.error("Template credit-cost migration failed:", error.message);
+        console.error("Template credit-cost migration failed:", error?.name || "MIGRATION_ERROR", error?.code || "UNKNOWN");
         process.exitCode = 1;
     } finally {
         await mongoose.disconnect();

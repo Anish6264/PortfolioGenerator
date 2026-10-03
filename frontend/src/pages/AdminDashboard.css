@@ -1,0 +1,55 @@
+.admin-dashboard { width: min(1200px, calc(100% - 2rem)); margin: 2rem auto; }
+.admin-dashboard-header,
+.admin-dashboard-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+.admin-dashboard-header nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+.admin-dashboard-header h1 { margin: 0.25rem 0; }
+.admin-dashboard-header p { margin: 0.3rem 0; }
+.admin-dashboard-section-heading { margin: 1.5rem 0 1rem; }
+.admin-dashboard-section-heading h2 { margin: 0; }
+.admin-dashboard button {
+    padding: 0.55rem 0.85rem;
+    border: 1px solid #9ca3af;
+    border-radius: 0.4rem;
+    background: white;
+    color: #111827;
+    font: inherit;
+    cursor: pointer;
+}
+.admin-dashboard button:disabled { cursor: wait; opacity: 0.65; }
+.admin-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1rem;
+}
+.admin-metric-card,
+.admin-recent-section {
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.65rem;
+}
+.admin-metric-card h3,
+.admin-recent-section h2 { margin-top: 0; }
+.admin-metric-card dl { display: grid; gap: 0.65rem; margin: 0; }
+.admin-metric-card dl div { display: flex; justify-content: space-between; gap: 1rem; }
+.admin-metric-card dt { color: #4b5563; }
+.admin-metric-card dd { margin: 0; font-weight: 700; text-align: right; }
+.admin-recent-grid { display: grid; gap: 1rem; margin-top: 1.5rem; }
+.admin-table-wrap { overflow-x: auto; }
+.admin-table-wrap table { width: 100%; border-collapse: collapse; }
+.admin-table-wrap th,
+.admin-table-wrap td { padding: 0.65rem; border-bottom: 1px solid #e5e7eb; text-align: left; white-space: nowrap; }
+.admin-table-wrap th { color: #4b5563; font-size: 0.9rem; }
+.admin-dashboard-error { margin: 1.5rem 0; color: #b91c1c; }
+.admin-dashboard-error button { margin-left: 0.75rem; }
+.admin-dashboard-footnote { color: #6b7280; font-size: 0.9rem; }
+@media (max-width: 600px) {
+    .admin-dashboard-header { align-items: flex-start; flex-direction: column; }
+    .admin-table-wrap th,
+    .admin-table-wrap td { padding: 0.55rem; }
+}

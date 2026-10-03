@@ -34,27 +34,40 @@ export const AuthProvider = ({ children }) => {
     }, [token]);
 
     useEffect(() => {
+        let active = true;
         const restoreUser = async () => {
             if (!token) {
-                setIsAuthLoading(false);
+                if (active) setIsAuthLoading(false);
                 return;
             }
 
             try {
                 const response = await api.get("/auth/me");
-                setUser(response.data.user);
+                if (active) setUser(response.data.user);
             } catch (error) {
-                if (error.response?.status === 401 || error.response?.status === 404) {
+                if (active && (error.response?.status === 401 || error.response?.status === 404)) {
                     localStorage.removeItem("token");
                     setToken(null);
                     setUser(null);
                 }
             } finally {
-                setIsAuthLoading(false);
+                if (active) setIsAuthLoading(false);
             }
         };
 
-        restoreUser();
+        void restoreUser();
+        return () => { active = false; };
+    }, [token]);
+
+    useEffect(() => {
+        const handleStorage = (event) => {
+            if (event.key !== "token") return;
+            setToken(event.newValue);
+            setUser(null);
+            setIsAuthLoading(Boolean(event.newValue));
+        };
+        window.addEventListener("storage", handleStorage);
+        return () => window.removeEventListener("storage", handleStorage);
     }, []);
 
     const login = (token, user) => {
@@ -72,6 +85,7 @@ export const AuthProvider = ({ children }) => {
 
         setToken(null);
         setUser(null);
+        setIsAuthLoading(false);
     };
 
     const refreshUser = async () => {
