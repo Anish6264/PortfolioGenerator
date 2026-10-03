@@ -10,6 +10,7 @@ const publicPortfolioRoutes = require("./routes/publicPortfolio.routes");
 const importRoutes = require("./routes/import.routes");
 const aiContentRoutes = require("./routes/aiContent.routes");
 const adminRoutes = require("./routes/admin.routes");
+const paymentRoutes = require("./routes/payment.routes");
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use("/api/import", importRoutes);
 app.use("/api/ai", aiContentRoutes);
 app.use("/api/generator", generatorRoutes);
 app.use("/api/uploads", uploadRoutes);
+app.use("/api/payments", paymentRoutes);
 
 app.use((error, req, res, next) => {
     if (error.code === "LIMIT_FILE_SIZE") {

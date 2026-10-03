@@ -1,0 +1,58 @@
+.buy-credits-page {
+    padding: 24px;
+    text-align: left;
+}
+
+.buy-credits-page > p {
+    margin: 12px 0;
+}
+
+.buy-credits-balance {
+    font-weight: 600;
+}
+
+.credit-pack-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 16px;
+    margin: 28px 0;
+}
+
+.credit-pack {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+}
+
+.credit-pack h2 {
+    margin-bottom: 12px;
+}
+
+.credit-pack-price {
+    margin-bottom: 18px;
+    color: var(--text-h);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.credit-pack button {
+    width: 100%;
+}
+
+.credit-pack button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.payment-feedback {
+    margin: 16px 0;
+}
+
+.payment-error {
+    color: #b42318;
+}
+
+.payment-success {
+    color: #067647;
+}

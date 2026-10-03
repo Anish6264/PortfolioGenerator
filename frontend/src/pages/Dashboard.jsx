@@ -389,6 +389,8 @@ function Dashboard() {
                         Credits: {user?.credits ?? 0}
                     </p>
 
+                    <p><Link to="/buy-credits">Buy Credits</Link></p>
+
                     <Link to="/profile">Profile / Account</Link>
                     {user?.role === "admin" && (
                         <p><Link to="/admin/templates">Admin: Manage Templates</Link></p>

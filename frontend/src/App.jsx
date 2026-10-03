@@ -17,6 +17,7 @@ import Profile from "./pages/Profile";
 import AdminTemplates from "./pages/AdminTemplates";
 import AdminTemplateEdit from "./pages/AdminTemplateEdit";
 import AdminRoute from "./components/AdminRoute";
+import BuyCredits from "./pages/BuyCredits";
 
 
 function App() {
@@ -91,6 +92,11 @@ function App() {
                 <Route
                     path="/dashboard"
                     element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+                />
+
+                <Route
+                    path="/buy-credits"
+                    element={<ProtectedRoute><BuyCredits /></ProtectedRoute>}
                 />
 
                 <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
