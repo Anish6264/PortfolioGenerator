@@ -41,7 +41,7 @@ const registerUser = async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            credits: 5
+            credits: 10
         });
 
         return res.status(201).json({
@@ -205,7 +205,7 @@ const updateProfile = async (req, res) => {
         const user = await User.findByIdAndUpdate(
             req.user.id,
             { $set: updates },
-            { new: true, runValidators: true, select: "name email avatar role credits" }
+            { returnDocument: "after", runValidators: true, select: "name email avatar role credits" }
         );
 
         if (!user) return res.status(404).json({ message: "User not found" });

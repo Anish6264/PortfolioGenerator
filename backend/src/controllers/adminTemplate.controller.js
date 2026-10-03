@@ -90,8 +90,8 @@ const validateAndNormalizeUpdates = (body) => {
     }
 
     if (Object.prototype.hasOwnProperty.call(body, "creditCost")) {
-        if (!Number.isSafeInteger(body.creditCost) || body.creditCost < 0) {
-            return { error: "creditCost must be a non-negative integer" };
+        if (!Number.isSafeInteger(body.creditCost) || body.creditCost < 1) {
+            return { error: "creditCost must be a positive integer" };
         }
         updates.creditCost = body.creditCost;
     }
@@ -139,20 +139,25 @@ const updateAdminTemplate = async (req, res) => {
         if (!template) return res.status(404).json({ message: "Template not found" });
 
         const updates = validation.updates;
-        const isPremium = Object.prototype.hasOwnProperty.call(updates, "isPremium")
+        const finalIsPremium = Object.prototype.hasOwnProperty.call(updates, "isPremium")
             ? updates.isPremium
             : template.isPremium;
+        const explicitlySetCost = Object.prototype.hasOwnProperty.call(updates, "creditCost");
         const requestedCost = Object.prototype.hasOwnProperty.call(updates, "creditCost")
             ? updates.creditCost
             : template.creditCost;
 
-        if (isPremium && (!Number.isSafeInteger(requestedCost) || requestedCost <= 0)) {
+        if (!finalIsPremium && explicitlySetCost && requestedCost !== 1) {
+            return res.status(400).json({ message: "Standard templates must cost exactly 1 credit" });
+        }
+
+        if (!Number.isSafeInteger(requestedCost) || requestedCost < 1) {
             return res.status(400).json({
-                message: "Premium templates must have a positive integer credit cost"
+                message: "Templates must have a positive integer credit cost"
             });
         }
 
-        updates.creditCost = isPremium ? requestedCost : 0;
+        updates.creditCost = finalIsPremium ? requestedCost : 1;
         template.set(updates);
         await template.save();
 

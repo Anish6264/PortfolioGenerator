@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import TemplatePricing from "../components/TemplatePricing";
+import { getTemplateGenerationCost } from "../utils/templatePricing";
 
 function Dashboard() {
 
@@ -235,8 +237,13 @@ function Dashboard() {
 
     const handleGenerate = async (portfolio) => {
         if (generationLock.current) return;
-        const generationCost = Math.max(1, portfolio.template?.creditCost || 0);
-        if ((user?.credits ?? 0) < generationCost) {
+        const downloadPaid = portfolio.downloadPaid === true;
+        const generationCost = getTemplateGenerationCost(portfolio.template);
+        if (!downloadPaid && (!Number.isInteger(generationCost) || generationCost < 1)) {
+            setError("The first-download credit cost is unavailable. Please select another template or try again later.");
+            return;
+        }
+        if (!downloadPaid && (user?.credits ?? 0) < generationCost) {
             setError(`You need ${generationCost} credits to generate this portfolio. You have ${user?.credits ?? 0}.`);
             return;
         }
@@ -291,6 +298,13 @@ function Dashboard() {
             window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
 
             try {
+                const portfoliosResponse = await api.get("/portfolios");
+                setPortfolios(portfoliosResponse.data.portfolios);
+            } catch (refreshError) {
+                console.error("Failed to refresh portfolio download status:", refreshError);
+            }
+
+            try {
                 await refreshUser();
             } catch (refreshError) {
                 console.error("Failed to refresh user data:", refreshError);
@@ -309,7 +323,7 @@ function Dashboard() {
                 }
             }
             const message = errorBody?.code === "INSUFFICIENT_CREDITS"
-                ? `Insufficient credits. This generation needs ${errorBody.requiredCredits} credits; your balance is ${errorBody.availableCredits}.`
+                ? `Insufficient credits. The first download needs ${errorBody.requiredCredits} credits; your balance is ${errorBody.availableCredits}.`
                 : status === 401
                     ? "Your session has expired. Please sign in again."
                     : status === 403
@@ -322,6 +336,12 @@ function Dashboard() {
                                 ? "This portfolio has invalid or incomplete data and could not be generated."
                                 : "Portfolio generation failed. Please try again.";
             setError(message);
+            try {
+                const portfoliosResponse = await api.get("/portfolios");
+                setPortfolios(portfoliosResponse.data.portfolios);
+            } catch (refreshError) {
+                console.error("Failed to refresh portfolio state after download failure:", refreshError);
+            }
             try {
                 await refreshUser();
             } catch (refreshError) {
@@ -522,6 +542,7 @@ function Dashboard() {
                                                 ?.title
                                         }
                                     </p>
+                                    <TemplatePricing template={portfolio.template} />
 
                                     <p>
                                         Template:{" "}
@@ -617,17 +638,30 @@ function Dashboard() {
                                             onClick={() => handleGenerate(portfolio)}
                                             disabled={
                                                 generatingId !== null ||
-                                                (user?.credits ?? 0) < Math.max(1, portfolio.template?.creditCost || 0)
+                                                (portfolio.downloadPaid !== true && (
+                                                    !Number.isInteger(getTemplateGenerationCost(portfolio.template)) ||
+                                                    (user?.credits ?? 0) < getTemplateGenerationCost(portfolio.template)
+                                                ))
                                             }
-                                            title={`Generation cost: ${Math.max(1, portfolio.template?.creditCost || 0)} credits; balance: ${user?.credits ?? 0}`}
+                                            title={portfolio.downloadPaid === true
+                                                ? "First download paid; future downloads are free"
+                                                : `${getTemplateGenerationCost(portfolio.template)} credits on first download; balance: ${user?.credits ?? 0}`}
                                         >
                                             {
                                                 generatingId ===
                                                 portfolio._id
                                                     ? "Generating..."
-                                                    : "Download Portfolio"
+                                                    : portfolio.downloadPaid === true
+                                                        ? "Download Again — Free"
+                                                        : `Download Portfolio — ${getTemplateGenerationCost(portfolio.template) ?? "unavailable"} credits`
                                             }
                                         </button>
+
+                                        <p>
+                                            {portfolio.downloadPaid === true
+                                                ? "First download paid — this download is free"
+                                                : `${getTemplateGenerationCost(portfolio.template) ?? "unavailable"} credits on first download`}
+                                        </p>
 
 
                                         {" "}

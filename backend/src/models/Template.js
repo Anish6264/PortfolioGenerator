@@ -55,14 +55,12 @@ const templateSchema = new mongoose.Schema(
         creditCost: {
             type: Number,
             default: 1,
-            min: 0,
+            min: 1,
             validate: {
                 validator(value) {
-                    return Number.isInteger(value) &&
-                        value >= 0 &&
-                        (!this.isPremium || value > 0);
+                    return Number.isInteger(value) && value >= 1;
                 },
-                message: "Premium templates must have a positive integer credit cost"
+                message: "Template credit cost must be a positive integer"
             }
         },
 

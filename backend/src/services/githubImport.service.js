@@ -25,6 +25,28 @@ const normalizeGitHubReference = (reference) => {
 const boundedText = (value, maxLength) =>
     typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 
+const normalizeGitHubRepositoryUrl = (value) => {
+    if (typeof value !== "string" || !value.trim()) return "";
+    try {
+        const parsed = new URL(value.trim());
+        if (
+            parsed.protocol !== "https:" ||
+            parsed.hostname.toLowerCase() !== "github.com" ||
+            parsed.username ||
+            parsed.password ||
+            parsed.search ||
+            parsed.hash
+        ) return "";
+        const segments = parsed.pathname.split("/").filter(Boolean);
+        if (segments.length !== 2) return "";
+        const decodedSegments = segments.map((segment) => decodeURIComponent(segment));
+        if (decodedSegments.some((segment) => !/^[A-Za-z0-9_.-]+$/.test(segment) || segment === "." || segment === "..")) return "";
+        return `https://github.com/${decodedSegments.map(encodeURIComponent).join("/")}`;
+    } catch {
+        return "";
+    }
+};
+
 const GITHUB_API_BASE = "https://api.github.com";
 const GITHUB_API_VERSION = "2026-03-10";
 const REPOSITORIES_PER_PAGE = 100;
@@ -55,40 +77,38 @@ const githubRequest = async (path, query = {}) => {
     let response;
     try {
         response = await fetch(url, { method: "GET", headers, signal: controller.signal });
+        if (response.status === 404) {
+            throw new GitHubImportError("GitHub user not found.", { status: 404, code: "GITHUB_USER_NOT_FOUND" });
+        }
+        if (response.status === 401) {
+            throw new GitHubImportError("GitHub authentication failed. Check the server configuration.", { status: 502, code: "GITHUB_AUTH_FAILED" });
+        }
+        if (response.status === 403 || response.status === 429) {
+            const rateLimited = response.status === 429 || response.headers.get("x-ratelimit-remaining") === "0" || Boolean(response.headers.get("retry-after"));
+            throw new GitHubImportError(
+                rateLimited ? "GitHub rate limit reached. Please try again later." : "GitHub import failed.",
+                { status: rateLimited ? 429 : 502, code: rateLimited ? "GITHUB_RATE_LIMIT" : "GITHUB_FORBIDDEN" }
+            );
+        }
+        if (!response.ok) {
+            throw new GitHubImportError("GitHub import failed.", { status: 502, code: "GITHUB_API_ERROR" });
+        }
+
+        try {
+            return await response.json();
+        } catch {
+            throw new GitHubImportError("GitHub returned an unexpected response.", { status: 502, code: "GITHUB_INVALID_RESPONSE" });
+        }
     } catch (error) {
-        const timedOut = error?.name === "AbortError";
-        throw new GitHubImportError(
-            timedOut ? "Unable to reach GitHub right now." : "Unable to reach GitHub right now.",
-            { status: 503, code: timedOut ? "GITHUB_TIMEOUT" : "GITHUB_UNAVAILABLE" }
-        );
+        if (error instanceof GitHubImportError) throw error;
+        const timedOut = controller.signal.aborted || error?.name === "AbortError";
+        throw new GitHubImportError("Unable to reach GitHub right now.", {
+            status: 503,
+            code: timedOut ? "GITHUB_TIMEOUT" : "GITHUB_UNAVAILABLE"
+        });
     } finally {
         clearTimeout(timeout);
     }
-
-    if (response.status === 404) {
-        throw new GitHubImportError("GitHub user not found.", { status: 404, code: "GITHUB_USER_NOT_FOUND" });
-    }
-    if (response.status === 401) {
-        throw new GitHubImportError("GitHub authentication failed. Check the server configuration.", { status: 502, code: "GITHUB_AUTH_FAILED" });
-    }
-    if (response.status === 403 || response.status === 429) {
-        const rateLimited = response.status === 429 || response.headers.get("x-ratelimit-remaining") === "0" || Boolean(response.headers.get("retry-after"));
-        throw new GitHubImportError(
-            rateLimited ? "GitHub rate limit reached. Please try again later." : "GitHub import failed.",
-            { status: rateLimited ? 429 : 502, code: rateLimited ? "GITHUB_RATE_LIMIT" : "GITHUB_FORBIDDEN" }
-        );
-    }
-    if (!response.ok) {
-        throw new GitHubImportError("GitHub import failed.", { status: 502, code: "GITHUB_API_ERROR" });
-    }
-
-    let data;
-    try {
-        data = await response.json();
-    } catch {
-        throw new GitHubImportError("GitHub returned an unexpected response.", { status: 502, code: "GITHUB_INVALID_RESPONSE" });
-    }
-    return data;
 };
 
 const mapRepositoryToProject = (repository = {}) => {
@@ -100,7 +120,7 @@ const mapRepositoryToProject = (repository = {}) => {
         title: boundedText(source.name, 120),
         description: boundedText(source.description, 2000),
         technologies: language ? [language] : [],
-        githubUrl: normalizeProjectUrl(source.html_url),
+        githubUrl: normalizeGitHubRepositoryUrl(source.html_url),
         liveUrl: normalizeProjectUrl(source.homepage)
     };
 };
@@ -116,9 +136,9 @@ const normalizeRepositoryProposal = (repository = {}) => {
     return {
         name: project.title,
         description: project.description,
-        technologies: Array.isArray(source.technologies)
+        technologies: [...new Map((Array.isArray(source.technologies)
             ? source.technologies.slice(0, 30).map((value) => boundedText(value, 100)).filter(Boolean)
-            : project.technologies,
+            : project.technologies).map((value) => [value.toLocaleLowerCase(), value])).values()],
         githubUrl: project.githubUrl,
         liveUrl: project.liveUrl,
         selected: true
@@ -203,7 +223,7 @@ const importGitHubProfile = async (reference) => {
         }
 
         // Only public repositories belong in a portfolio proposal, even if this token can see private repositories.
-        const publicRepositories = pageData.filter((repository) => repository && repository.private !== true);
+        const publicRepositories = pageData.filter((repository) => repository && repository.private === false);
         for (const repository of publicRepositories) {
             const project = mapRepositoryToProject(repository);
             if (!project.title || !project.githubUrl) continue;

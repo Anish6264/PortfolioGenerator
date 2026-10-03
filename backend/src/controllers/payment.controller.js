@@ -111,7 +111,7 @@ const verifyPayment = async (req, res) => {
                             verification: { verifiedAt: new Date(), paymentStatus: payment.status }
                         }
                     },
-                    { new: true, session }
+                    { returnDocument: "after", session }
                 );
 
                 if (!claimed) {

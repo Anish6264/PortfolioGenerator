@@ -60,7 +60,7 @@ const updatePortfolioWithUniqueSlug = async (Portfolio, filter, updates, name) =
             return await Portfolio.findOneAndUpdate(
                 filter,
                 { ...updates, slug: getCandidate(baseSlug, attempt) },
-                { new: true, runValidators: true }
+                { returnDocument: "after", runValidators: true }
             );
         } catch (error) {
             if (!isSlugConflict(error)) {

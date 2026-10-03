@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     useNavigate,
     useParams,
@@ -8,6 +8,10 @@ import {
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import ProposedChangesReview from "../components/ProposedChangesReview";
+import AIEnhanceField from "../components/AIEnhanceField";
+import BuilderImports from "../components/BuilderImports";
+import TemplatePricing from "../components/TemplatePricing";
+import { getTemplateGenerationCost } from "../utils/templatePricing";
 import { validateProposedPortfolioData } from "../utils/proposedPortfolioData";
 
 const supportedSections = [
@@ -35,7 +39,7 @@ const supportedFonts = [
 function Builder() {
 
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
 
     const { id } = useParams();
 
@@ -45,6 +49,9 @@ function Builder() {
     const professionFromUrl = searchParams.get("profession");
 
     const isEditMode = Boolean(id);
+    const [createdPortfolioId, setCreatedPortfolioId] = useState(null);
+    const identityLocked = isEditMode || Boolean(createdPortfolioId);
+    const newBuilderEmailPrefilled = useRef(false);
 
 
     // --------------------------------------------------
@@ -68,6 +75,9 @@ function Builder() {
     const selectedTemplateId = isEditMode
         ? portfolioTemplateId
         : templateFromUrl;
+    const selectedTemplateCost = selectedTemplateDetails?.id === selectedTemplateId
+        ? getTemplateGenerationCost(selectedTemplateDetails.template)
+        : null;
 
     useEffect(() => {
         if (!selectedTemplateId) {
@@ -101,6 +111,7 @@ function Builder() {
     const [loading, setLoading] = useState(false);
 
     const [error, setError] = useState("");
+    const [reviewOpen, setReviewOpen] = useState(false);
     const [autosaveStatus, setAutosaveStatus] = useState("Saved");
     const [portfolioLoaded, setPortfolioLoaded] = useState(false);
     const [savedSnapshotState, setSavedSnapshotState] = useState("");
@@ -205,6 +216,18 @@ function Builder() {
         seoDescription: ""
     });
 
+    useEffect(() => {
+        if (isEditMode || !user?.email || newBuilderEmailPrefilled.current) return;
+        setFormData((current) => {
+            if (current.personal.email) return current;
+            newBuilderEmailPrefilled.current = true;
+            return {
+                ...current,
+                personal: { ...current.personal, email: user.email }
+            };
+        });
+    }, [isEditMode, user?.email]);
+
 
     // --------------------------------------------------
     // Temporary Inputs
@@ -219,8 +242,35 @@ function Builder() {
     const [importBusy, setImportBusy] = useState("");
     const [importMessage, setImportMessage] = useState("");
     const [githubReference, setGithubReference] = useState("");
+    const [githubImportModal, setGithubImportModal] = useState("");
+    const [githubCreditsAvailable, setGithubCreditsAvailable] = useState(null);
+    const githubImportLock = useRef(false);
     const [reviewProposal, setReviewProposal] = useState(null);
+    const [proposalActionBusy, setProposalActionBusy] = useState(false);
     const reviewProposalRef = useRef(null);
+    const restoredGitHubReviewKey = useRef("");
+    const githubReviewOwnerId = user?.id || user?._id;
+    const githubReviewStorageKey = githubReviewOwnerId
+        ? `portfolio-builder-github-review:${githubReviewOwnerId}:${id || "new"}`
+        : null;
+
+    const updateGitHubReviewDecisions = useCallback((decisions) => {
+        setReviewProposal((current) => {
+            if (current?.source !== "GitHub" || JSON.stringify(current.repositoryDecisions || []) === JSON.stringify(decisions)) {
+                return current;
+            }
+            return { ...current, repositoryDecisions: decisions };
+        });
+    }, []);
+
+    const clearStoredGitHubReview = useCallback(() => {
+        if (!githubReviewStorageKey) return;
+        try {
+            window.sessionStorage.removeItem(githubReviewStorageKey);
+        } catch {
+            // The server expiry job still refunds abandoned pending reservations.
+        }
+    }, [githubReviewStorageKey]);
 
     useEffect(() => {
         if (reviewProposal) {
@@ -264,7 +314,42 @@ function Builder() {
     const hasUploadedResume = Boolean(
         isEditMode && uploadedResumePath && portfolioLoaded && !loading && !uploadingFiles && !assetAction
     );
-    const canAnalyzeResume = Boolean(hasUploadedResume && !importBusy);
+    const canAnalyzeResume = Boolean(hasUploadedResume && !importBusy && !reviewProposal);
+
+    useEffect(() => {
+        if (!githubReviewStorageKey || (isEditMode && !portfolioLoaded) || restoredGitHubReviewKey.current === githubReviewStorageKey) return;
+        restoredGitHubReviewKey.current = githubReviewStorageKey;
+        let active = true;
+        try {
+            const saved = JSON.parse(window.sessionStorage.getItem(githubReviewStorageKey) || "null");
+            if (
+                saved?.source === "GitHub" &&
+                /^[a-f\d]{24}$/i.test(saved.creditReservationId || "") &&
+                Array.isArray(saved.repositories) &&
+                !validateProposedPortfolioData(saved.data || {})
+            ) {
+                window.setTimeout(() => {
+                    if (!active) return;
+                    setReviewProposal({ ...saved, id: Date.now() });
+                    setImportMessage("Your pending GitHub review was restored. Apply it or cancel it to resolve the reserved credits.");
+                }, 0);
+            } else if (saved) {
+                clearStoredGitHubReview();
+            }
+        } catch {
+            clearStoredGitHubReview();
+        }
+        return () => { active = false; };
+    }, [githubReviewStorageKey, isEditMode, portfolioLoaded, clearStoredGitHubReview]);
+
+    useEffect(() => {
+        if (reviewProposal?.source !== "GitHub" || !reviewProposal.creditReservationId || !githubReviewStorageKey) return;
+        try {
+            window.sessionStorage.setItem(githubReviewStorageKey, JSON.stringify(reviewProposal));
+        } catch {
+            // Server-side expiry cleanup remains authoritative if session storage is unavailable.
+        }
+    }, [githubReviewStorageKey, reviewProposal]);
     const profileImageReference = formData.personal.profileImage || "";
     const profileImagePreviewSrc = profileImageFile
         ? localProfileImagePreviewUrl
@@ -342,29 +427,89 @@ function Builder() {
         }
     };
 
-    const showProposal = (source, data, replacements = {}, repositories = []) => {
+    const showProposal = (source, data, replacements = {}, repositories = [], creditReservationId = null) => {
         const validationError = validateProposedPortfolioData(data);
         if (validationError) {
             setImportMessage("The imported content was invalid and has not changed your portfolio.");
+            return false;
+        }
+        setReviewProposal({ source, data, replacements, repositories, creditReservationId, id: Date.now() });
+        setImportMessage("");
+        return true;
+    };
+
+    const openGitHubImportConfirmation = () => {
+        if (importBusy || githubImportLock.current || reviewProposal) return;
+        setImportMessage("");
+        if ((user?.credits ?? 0) < 2) {
+            setGithubCreditsAvailable(user?.credits ?? 0);
+            setGithubImportModal("insufficient");
             return;
         }
-        setReviewProposal({ source, data, replacements, repositories, id: Date.now() });
-        setImportMessage("");
+        setGithubImportModal("confirm");
     };
 
     const handleGitHubImport = async () => {
+        if (githubImportLock.current || (user?.credits ?? 0) < 2) return;
+        githubImportLock.current = true;
+        setGithubImportModal("");
         setImportBusy("github");
         setImportMessage("");
         try {
             const response = await api.post("/import/github", { reference: githubReference });
-            if (response.data.proposedData) showProposal("GitHub", response.data.proposedData, {}, response.data.repositories || []);
+            let balanceRefreshFailed = false;
+            try {
+                await refreshUser();
+            } catch {
+                // The backend response remains authoritative; a later refresh will reconcile the displayed balance.
+                balanceRefreshFailed = true;
+            }
+            let proposalCreated = false;
+            if (response.data.proposedData) {
+                proposalCreated = showProposal("GitHub", response.data.proposedData, {}, response.data.repositories || [], response.data.creditReservationId);
+            }
             else if (Array.isArray(response.data.repositories) && response.data.repositories.length) {
-                setReviewProposal({ source: "GitHub", data: {}, repositories: response.data.repositories, id: Date.now() });
+                setReviewProposal({
+                    source: "GitHub",
+                    data: {},
+                    repositories: response.data.repositories,
+                    creditReservationId: response.data.creditReservationId,
+                    id: Date.now()
+                });
+                proposalCreated = true;
             }
             else setImportMessage(response.data.message || "No GitHub data was imported.");
+            if (!proposalCreated && response.data.creditReservationId) {
+                try {
+                    await api.post(`/import/github/reservations/${response.data.creditReservationId}/refund`, {});
+                    await refreshUser();
+                    setImportMessage("The GitHub review could not be created, so the reserved credits were returned.");
+                } catch {
+                    setImportMessage("The GitHub review could not be created and its reserved credits could not be confirmed as returned.");
+                }
+            }
+            if (balanceRefreshFailed && proposalCreated) {
+                setImportMessage("GitHub import is ready for review and its 2-credit charge succeeded, but your balance did not refresh. Refresh your account before another import.");
+            }
         } catch (requestError) {
-            setImportMessage(requestError.response?.data?.message || "GitHub import is currently unavailable.");
+            let balanceRefreshFailed = false;
+            try {
+                await refreshUser();
+            } catch {
+                // Keep the existing auth state if the refresh itself is unavailable.
+                balanceRefreshFailed = true;
+            }
+            if (requestError.response?.data?.code === "INSUFFICIENT_CREDITS") {
+                setGithubCreditsAvailable(Number.isInteger(requestError.response.data.availableCredits)
+                    ? requestError.response.data.availableCredits
+                    : user?.credits ?? 0);
+                setGithubImportModal("insufficient");
+            } else {
+                const message = requestError.response?.data?.message || "GitHub import is currently unavailable.";
+                setImportMessage(balanceRefreshFailed ? `${message} Your credit balance could not be refreshed.` : message);
+            }
         } finally {
+            githubImportLock.current = false;
             setImportBusy("");
         }
     };
@@ -394,10 +539,64 @@ function Builder() {
         }
     };
 
-    const applyProposal = (mergedData) => {
-        setFormData(mergedData);
+    const applyProposal = async (mergedData) => {
+        const proposal = reviewProposal;
+        if (proposalActionBusy) return;
+        setProposalActionBusy(true);
+        let creditRefreshFailed = false;
+        try {
+            if (proposal?.source === "GitHub" && proposal.creditReservationId) {
+                await api.post(`/import/github/reservations/${proposal.creditReservationId}/commit`, {});
+            }
+        } catch (requestError) {
+            setImportMessage(requestError.response?.data?.message || "The GitHub import could not be applied. Your projects were not changed.");
+            setProposalActionBusy(false);
+            return;
+        }
+
+        if (proposal?.source === "GitHub") clearStoredGitHubReview();
+        setFormData({
+            ...mergedData,
+            projects: [...(mergedData.projects || [])]
+        });
         setReviewProposal(null);
-        setImportMessage("Selected changes were applied. Save or continue editing to keep them.");
+        try {
+            await refreshUser();
+        } catch {
+            creditRefreshFailed = true;
+        }
+        setImportMessage(isEditMode
+            ? "Selected changes were applied. Autosave will keep them in your portfolio."
+            : "Selected changes were applied. Save your portfolio to keep them.");
+        if (creditRefreshFailed) {
+            setImportMessage("Changes were applied, but your credit balance did not refresh. Reload your account to see the current balance.");
+        }
+        setProposalActionBusy(false);
+    };
+
+    const dismissProposal = async (reason) => {
+        const proposal = reviewProposal;
+        if (!proposal || proposalActionBusy) return;
+        setProposalActionBusy(true);
+        try {
+            if (proposal.source === "GitHub" && proposal.creditReservationId) {
+                await api.post(`/import/github/reservations/${proposal.creditReservationId}/refund`, {});
+            }
+            if (proposal.source === "GitHub") clearStoredGitHubReview();
+            setReviewProposal(null);
+            setImportMessage(reason === "cancel"
+                ? "Import canceled. Any reserved GitHub credits were returned."
+                : "Proposal rejected. Your existing portfolio data was kept; any reserved GitHub credits were returned.");
+            try {
+                await refreshUser();
+            } catch {
+                setImportMessage("The import was closed, but your credit balance did not refresh. Reload your account to see the current balance.");
+            }
+        } catch (requestError) {
+            setImportMessage(requestError.response?.data?.message || "The reserved GitHub credits could not be confirmed as refunded. The review remains open so you can retry.");
+        } finally {
+            setProposalActionBusy(false);
+        }
     };
 
 
@@ -593,7 +792,8 @@ function Builder() {
             !isEditMode ||
             !portfolioLoaded ||
             loading ||
-            uploadingFiles
+            uploadingFiles ||
+            reviewOpen
         ) {
             return undefined;
         }
@@ -642,6 +842,7 @@ function Builder() {
         isEditMode,
         loading,
         portfolioLoaded,
+        reviewOpen,
         selectedTemplateId,
         uploadingFiles
     ]);
@@ -682,6 +883,21 @@ function Builder() {
             ...previous,
 
             [name]: value
+        }));
+    };
+
+    const applyEnhancedText = (field, index, text) => {
+        if (field === "shortIntro" || field === "about") {
+            setFormData((previous) => ({ ...previous, [field]: text }));
+            return;
+        }
+
+        const section = field.split(".")[0];
+        setFormData((previous) => ({
+            ...previous,
+            [section]: previous[section].map((item, itemIndex) =>
+                itemIndex === index ? { ...item, description: text } : item
+            )
         }));
     };
 
@@ -1419,14 +1635,14 @@ function Builder() {
     // SUBMIT
     // ==================================================
 
-    const handleSubmit = async (event) => {
-
+    const handleSubmit = (event) => {
         event.preventDefault();
 
         if (saveInProgress.current) return;
-
-        clearTimeout(autosaveTimer.current);
-
+        if (reviewProposal || proposalActionBusy) {
+            setError("Apply, reject, or cancel the pending review before saving this portfolio.");
+            return;
+        }
 
         if (!selectedTemplateId) {
 
@@ -1438,9 +1654,17 @@ function Builder() {
         }
 
 
+        clearTimeout(autosaveTimer.current);
+        setError("");
+        setReviewOpen(true);
+    };
+
+    const submitReviewedPortfolio = async () => {
+        if (saveInProgress.current || !reviewOpen) return;
         setError("");
 
         const resumeUploadPending = Boolean(resumeFile);
+        const updatingExisting = isEditMode || Boolean(createdPortfolioId);
 
         saveInProgress.current = true;
         setLoading(true);
@@ -1468,10 +1692,10 @@ function Builder() {
             // Create / Update Portfolio
             // ------------------------------------------
 
-            if (isEditMode) {
+            if (updatingExisting) {
 
                 response = await api.put(
-                    `/portfolios/${id}`,
+                    `/portfolios/${id || createdPortfolioId}`,
                     portfolioData
                 );
 
@@ -1487,6 +1711,18 @@ function Builder() {
             const savedPortfolio =
                 response.data.portfolio;
 
+            if (!updatingExisting) setCreatedPortfolioId(savedPortfolio._id);
+
+            setReviewOpen(false);
+
+            if (!updatingExisting) {
+                try {
+                    await refreshUser();
+                } catch {
+                    // Draft creation does not affect credits; keep the successful save intact.
+                }
+            }
+
             lastSavedSnapshot.current = JSON.stringify(portfolioData);
             setSavedSnapshotState(lastSavedSnapshot.current);
             autosaveRevision.current += 1;
@@ -1498,7 +1734,7 @@ function Builder() {
 
 
             console.log(
-                isEditMode
+                updatingExisting
                     ? "Portfolio updated:"
                     : "Portfolio created:",
                 portfolioId
@@ -1579,7 +1815,7 @@ function Builder() {
             // ------------------------------------------
 
             if (resumeUploadPending) {
-                if (!isEditMode) navigate(`/builder/edit/${portfolioId}`);
+                if (!updatingExisting) navigate(`/builder/edit/${portfolioId}`);
                 else setImportMessage("Resume uploaded. You can now analyze it with AI.");
             } else {
                 navigate("/dashboard");
@@ -1671,12 +1907,11 @@ function Builder() {
                         key={reviewProposal.id}
                         proposal={reviewProposal}
                         currentData={formData}
+                        actionBusy={proposalActionBusy}
+                        onDecisionChange={updateGitHubReviewDecisions}
                         onAccept={applyProposal}
-                        onReject={() => {
-                            setReviewProposal(null);
-                            setImportMessage("Proposal rejected. Your existing portfolio data was kept.");
-                        }}
-                        onCancel={() => setReviewProposal(null)}
+                        onReject={() => dismissProposal("reject")}
+                        onCancel={() => dismissProposal("cancel")}
                     />
                 </div>
             )}
@@ -1718,7 +1953,7 @@ function Builder() {
                                         key={template._id}
                                         value={template._id}
                                     >
-                                        {template.name} ({template.category})
+                                        {template.name} ({template.category}) — {template.isPremium ? "Premium" : "Standard"}, {getTemplateGenerationCost(template) ?? "cost unavailable"} credits on first download
                                     </option>
                                 ))}
                             </select>
@@ -1727,189 +1962,41 @@ function Builder() {
                 </section>
             )}
 
-            {selectedTemplateDetails?.id === selectedTemplateId &&
-                selectedTemplateDetails.template?.isPremium && (
-                <section aria-label="Premium template credits">
-                    <h2>Premium Template</h2>
-                    <p>
-                        Cost: {selectedTemplateDetails.template.creditCost} credits per generation
-                    </p>
+            {selectedTemplateDetails?.id === selectedTemplateId && (
+                <section aria-label="Selected template">
+                    <h2>Template: {selectedTemplateDetails.template.name}</h2>
+                    <TemplatePricing template={selectedTemplateDetails.template} />
                     <p>Your credits: {user?.credits ?? 0}</p>
-                    {(user?.credits ?? 0) < selectedTemplateDetails.template.creditCost && (
-                        <p role="status">
-                            You need {selectedTemplateDetails.template.creditCost} credits to generate this template.
-                        </p>
-                    )}
+                    <p>Creating and editing are free. {selectedTemplateCost === null ? "The first-download cost is unavailable." : `${selectedTemplateCost} credits are charged on the first successful download; later downloads are free.`}</p>
                 </section>
             )}
 
+            <BuilderImports
+                uploadedResumePath={uploadedResumePath}
+                uploadedResumeOriginalName={uploadedResumeOriginalName}
+                resumeFile={resumeFile}
+                id={id}
+                uploadingFiles={uploadingFiles}
+                assetAction={assetAction}
+                importBusy={importBusy}
+                hasUploadedResume={hasUploadedResume}
+                canAnalyzeResume={canAnalyzeResume}
+                onResumeChange={handleResumeChange}
+                onResumeRemove={() => handleRemoveAsset("resume")}
+                onResumeAnalyze={handleResumeAnalysis}
+                githubReference={githubReference}
+                onGithubReferenceChange={setGithubReference}
+                onGithubImportOpen={openGitHubImportConfirmation}
+                githubImportModal={githubImportModal}
+                githubCreditsAvailable={githubCreditsAvailable}
+                reviewPending={Boolean(reviewProposal)}
+                credits={user?.credits ?? 0}
+                onGithubModalClose={() => setGithubImportModal("")}
+                onGithubImport={handleGitHubImport}
+            />
+
             <form onSubmit={handleSubmit}>
 
-                <section>
-                    <h2>Portfolio Customization</h2>
-
-                    <div>
-                        <label>
-                            Primary color{" "}
-                            <input
-                                type="color"
-                                value={formData.primaryColor}
-                                onChange={(event) => handleBasicChange({
-                                    target: { name: "primaryColor", value: event.target.value }
-                                })}
-                            />
-                        </label>
-                    </div>
-
-                    <div>
-                        <label>
-                            Secondary color{" "}
-                            <input
-                                type="color"
-                                value={formData.secondaryColor}
-                                onChange={(event) => handleBasicChange({
-                                    target: { name: "secondaryColor", value: event.target.value }
-                                })}
-                            />
-                        </label>
-                    </div>
-
-                    <div>
-                        <label>
-                            Background color{" "}
-                            <input
-                                type="color"
-                                value={formData.backgroundColor}
-                                onChange={(event) => handleBasicChange({
-                                    target: { name: "backgroundColor", value: event.target.value }
-                                })}
-                            />
-                        </label>
-                    </div>
-
-                    <div>
-                        <label>
-                            Text color{" "}
-                            <input
-                                type="color"
-                                value={formData.textColor}
-                                onChange={(event) => handleBasicChange({
-                                    target: { name: "textColor", value: event.target.value }
-                                })}
-                            />
-                        </label>
-                    </div>
-
-                    <label>
-                        Font{" "}
-                        <select
-                            name="fontFamily"
-                            value={formData.fontFamily}
-                            onChange={handleBasicChange}
-                        >
-                            {supportedFonts.map((font) => (
-                                <option key={font} value={font}>{font}</option>
-                            ))}
-                        </select>
-                    </label>
-
-                    <h3>Visible sections</h3>
-                    {supportedSections.map((section) => (
-                        <label key={section}>
-                            <input
-                                type="checkbox"
-                                checked={formData.sectionVisibility[section] !== false}
-                                onChange={(event) => handleSectionVisibilityChange(
-                                    section,
-                                    event.target.checked
-                                )}
-                            />
-                            {section.charAt(0).toUpperCase() + section.slice(1)}
-                        </label>
-                    ))}
-
-                    <h3>Section order</h3>
-                    <ol>
-                        {displayedSectionOrder.map((section, index) => (
-                            <li key={section}>
-                                {section.charAt(0).toUpperCase() + section.slice(1)}{" "}
-                                <button
-                                    type="button"
-                                    onClick={() => moveSection(index, -1)}
-                                    disabled={index === 0}
-                                    aria-label={`Move ${section} up`}
-                                >
-                                    Move up
-                                </button>{" "}
-                                <button
-                                    type="button"
-                                    onClick={() => moveSection(index, 1)}
-                                    disabled={index === displayedSectionOrder.length - 1}
-                                    aria-label={`Move ${section} down`}
-                                >
-                                    Move down
-                                </button>
-                            </li>
-                        ))}
-                    </ol>
-
-                    <h3>Custom sections</h3>
-                    {formData.customSections.map((section, index) => (
-                        <div key={index}>
-                            <input
-                                type="text"
-                                value={section.title}
-                                maxLength={80}
-                                placeholder="Section title"
-                                onChange={(event) => updateCustomSection(
-                                    index,
-                                    "title",
-                                    event.target.value
-                                )}
-                            />
-                            <textarea
-                                value={section.content}
-                                maxLength={4000}
-                                placeholder="Section content"
-                                onChange={(event) => updateCustomSection(
-                                    index,
-                                    "content",
-                                    event.target.value
-                                )}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => removeCustomSection(index)}
-                            >
-                                Remove section
-                            </button>
-                        </div>
-                    ))}
-                    <button
-                        type="button"
-                        onClick={addCustomSection}
-                        disabled={formData.customSections.length >= 10}
-                    >
-                        Add custom section
-                    </button>
-
-                    <h3>Search and social preview</h3>
-                    <input
-                        name="seoTitle"
-                        type="text"
-                        value={formData.seoTitle}
-                        maxLength={70}
-                        placeholder="SEO title (optional)"
-                        onChange={handleBasicChange}
-                    />
-                    <textarea
-                        name="seoDescription"
-                        value={formData.seoDescription}
-                        maxLength={200}
-                        placeholder="SEO description (optional)"
-                        onChange={handleBasicChange}
-                    />
-                </section>
 
 
                 {/* =====================================
@@ -1932,6 +2019,7 @@ function Builder() {
                         onChange={
                             handlePersonalChange
                         }
+                        readOnly={identityLocked}
                         required
                     />
 
@@ -1959,6 +2047,7 @@ function Builder() {
                         onChange={
                             handlePersonalChange
                         }
+                        readOnly={identityLocked}
                         required
                     />
 
@@ -2007,9 +2096,7 @@ function Builder() {
 
                 <section>
 
-                    <h2>
-                        Profile Image & Resume
-                    </h2>
+                    <h2>Profile Image</h2>
 
 
                     {/* Profile Image */}
@@ -2069,87 +2156,17 @@ function Builder() {
                     <br />
 
 
-                    {/* Resume */}
-
-                    <div>
-
-                        <label>
-                            {uploadedResumePath ? "Replace Resume" : "Choose PDF"}
-                        </label>
-
-                        <br />
-
-                        <input
-                            type="file"
-                            accept="application/pdf"
-                            disabled={uploadingFiles || Boolean(assetAction)}
-                            onChange={
-                                handleResumeChange
-                            }
-                        />
-
-
-                        {uploadedResumePath && !uploadingFiles && (
-                            <p role="status">
-                                {uploadedResumeOriginalName || "Uploaded resume"}
-                            </p>
-                        )}
-
-                        {uploadingFiles && <p role="status">Uploading file...</p>}
-
-                        {uploadedResumePath && id && (
-                            <button
-                                type="button"
-                                onClick={() => handleRemoveAsset("resume")}
-                                disabled={uploadingFiles || Boolean(assetAction)}
-                            >
-                                {assetAction === "resume" ? "Removing Resume..." : "Remove Resume"}
-                            </button>
-                        )}
-
-                        {resumeFile && (
-
-                            <p>
-
-                                Selected:
-                                {" "}
-                                {resumeFile.name}
-
-                            </p>
-                        )}
-
-                    </div>
-
-                    {hasUploadedResume && (
-                        <div>
-                            <h3>Analyze Resume with AI</h3>
-                            <p>Upload a PDF resume to prepare changes for review.</p>
-                            <button
-                                type="button"
-                                onClick={handleResumeAnalysis}
-                                disabled={!canAnalyzeResume}
-                            >
-                                {importBusy === "resume-analysis" ? "Analyzing resume..." : "Analyze Resume with AI"}
-                            </button>
-                        </div>
-                    )}
-
-
-                    <p>
-                        Maximum file size: 5 MB
-                    </p>
-
                 </section>
 
 
                 {/* =====================================
-                    INTRODUCTION
+                    SHORT INTRODUCTION
                 ====================================== */}
 
                 <section>
 
                     <h2>
-                        Introduction
+                        Short Introduction
                     </h2>
 
 
@@ -2163,6 +2180,17 @@ function Builder() {
                             handleBasicChange
                         }
                     />
+                    <AIEnhanceField
+                        field="shortIntro"
+                        text={formData.shortIntro}
+                        onApply={(text) => applyEnhancedText("shortIntro", null, text)}
+                    />
+
+                </section>
+
+                <section>
+
+                    <h2>About</h2>
 
                     <textarea
                         name="about"
@@ -2173,6 +2201,11 @@ function Builder() {
                         onChange={
                             handleBasicChange
                         }
+                    />
+                    <AIEnhanceField
+                        field="about"
+                        text={formData.about}
+                        onApply={(text) => applyEnhancedText("about", null, text)}
                     />
 
                 </section>
@@ -2333,6 +2366,11 @@ function Builder() {
                                         )
                                     }
                                 />
+                                <AIEnhanceField
+                                    field="education.description"
+                                    text={education.description}
+                                    onApply={(text) => applyEnhancedText("education.description", index, text)}
+                                />
 
 
                                 <button
@@ -2455,6 +2493,11 @@ function Builder() {
                                         )
                                     }
                                 />
+                                <AIEnhanceField
+                                    field="experience.description"
+                                    text={experience.description}
+                                    onApply={(text) => applyEnhancedText("experience.description", index, text)}
+                                />
 
                                 <button
                                     type="button"
@@ -2485,24 +2528,6 @@ function Builder() {
                 {/* =====================================
                     PROJECTS
                 ====================================== */}
-
-                <section>
-
-                    <h2>Import from GitHub</h2>
-                    <label>
-                        GitHub username or profile URL{" "}
-                        <input
-                            value={githubReference}
-                            onChange={(event) => setGithubReference(event.target.value)}
-                            maxLength={300}
-                        />
-                    </label>
-                    <button type="button" onClick={handleGitHubImport} disabled={Boolean(importBusy) || !githubReference.trim()}>
-                        {importBusy === "github" ? "Preparing import..." : "Import from GitHub"}
-                    </button>
-
-                </section>
-
 
                 <section>
 
@@ -2551,6 +2576,11 @@ function Builder() {
                                             event
                                         )
                                     }
+                                />
+                                <AIEnhanceField
+                                    field="projects.description"
+                                    text={project.description}
+                                    onApply={(text) => applyEnhancedText("projects.description", projectIndex, text)}
                                 />
 
                                 {/* Technologies */}
@@ -2730,16 +2760,191 @@ function Builder() {
 
                 </section>
 
+                <section>
+                    <h2>Portfolio Customization</h2>
+
+                    <div>
+                        <label>
+                            Primary color{" "}
+                            <input
+                                type="color"
+                                value={formData.primaryColor}
+                                onChange={(event) => handleBasicChange({
+                                    target: { name: "primaryColor", value: event.target.value }
+                                })}
+                            />
+                        </label>
+                    </div>
+
+                    <div>
+                        <label>
+                            Secondary color{" "}
+                            <input
+                                type="color"
+                                value={formData.secondaryColor}
+                                onChange={(event) => handleBasicChange({
+                                    target: { name: "secondaryColor", value: event.target.value }
+                                })}
+                            />
+                        </label>
+                    </div>
+
+                    <div>
+                        <label>
+                            Background color{" "}
+                            <input
+                                type="color"
+                                value={formData.backgroundColor}
+                                onChange={(event) => handleBasicChange({
+                                    target: { name: "backgroundColor", value: event.target.value }
+                                })}
+                            />
+                        </label>
+                    </div>
+
+                    <div>
+                        <label>
+                            Text color{" "}
+                            <input
+                                type="color"
+                                value={formData.textColor}
+                                onChange={(event) => handleBasicChange({
+                                    target: { name: "textColor", value: event.target.value }
+                                })}
+                            />
+                        </label>
+                    </div>
+
+                    <label>
+                        Font{" "}
+                        <select
+                            name="fontFamily"
+                            value={formData.fontFamily}
+                            onChange={handleBasicChange}
+                        >
+                            {supportedFonts.map((font) => (
+                                <option key={font} value={font}>{font}</option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <h3>Visible sections</h3>
+                    {supportedSections.map((section) => (
+                        <label key={section}>
+                            <input
+                                type="checkbox"
+                                checked={formData.sectionVisibility[section] !== false}
+                                onChange={(event) => handleSectionVisibilityChange(
+                                    section,
+                                    event.target.checked
+                                )}
+                            />
+                            {section.charAt(0).toUpperCase() + section.slice(1)}
+                        </label>
+                    ))}
+
+                    <h3>Section order</h3>
+                    <ol>
+                        {displayedSectionOrder.map((section, index) => (
+                            <li key={section}>
+                                {section.charAt(0).toUpperCase() + section.slice(1)}{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => moveSection(index, -1)}
+                                    disabled={index === 0}
+                                    aria-label={`Move ${section} up`}
+                                >
+                                    Move up
+                                </button>{" "}
+                                <button
+                                    type="button"
+                                    onClick={() => moveSection(index, 1)}
+                                    disabled={index === displayedSectionOrder.length - 1}
+                                    aria-label={`Move ${section} down`}
+                                >
+                                    Move down
+                                </button>
+                            </li>
+                        ))}
+                    </ol>
+
+                    <h3>Custom sections</h3>
+                    {formData.customSections.map((section, index) => (
+                        <div key={index}>
+                            <input
+                                type="text"
+                                value={section.title}
+                                maxLength={80}
+                                placeholder="Section title"
+                                onChange={(event) => updateCustomSection(
+                                    index,
+                                    "title",
+                                    event.target.value
+                                )}
+                            />
+                            <textarea
+                                value={section.content}
+                                maxLength={4000}
+                                placeholder="Section content"
+                                onChange={(event) => updateCustomSection(
+                                    index,
+                                    "content",
+                                    event.target.value
+                                )}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => removeCustomSection(index)}
+                            >
+                                Remove section
+                            </button>
+                        </div>
+                    ))}
+                    <button
+                        type="button"
+                        onClick={addCustomSection}
+                        disabled={formData.customSections.length >= 10}
+                    >
+                        Add custom section
+                    </button>
+
+                    <h3>Search and social preview</h3>
+                    <input
+                        name="seoTitle"
+                        type="text"
+                        value={formData.seoTitle}
+                        maxLength={70}
+                        placeholder="SEO title (optional)"
+                        onChange={handleBasicChange}
+                    />
+                    <textarea
+                        name="seoDescription"
+                        value={formData.seoDescription}
+                        maxLength={200}
+                        placeholder="SEO description (optional)"
+                        onChange={handleBasicChange}
+                    />
+                </section>
+
 
                 {/* =====================================
                     SUBMIT
                 ====================================== */}
 
+                <p>
+                    Creating and editing are free.
+                    {selectedTemplateDetails?.id === selectedTemplateId && (selectedTemplateCost === null
+                        ? " The first-download cost is currently unavailable."
+                        : ` The first successful download costs ${selectedTemplateCost} credits; later downloads are free.`)}
+                </p>
+
                 <button
                     type="submit"
                     disabled={
                         loading ||
-                        uploadingFiles
+                        uploadingFiles ||
+                        Boolean(reviewProposal) ||
+                        proposalActionBusy
                     }
                 >
 
@@ -2747,7 +2952,7 @@ function Builder() {
                         ? "Uploading Files..."
                         : loading
                             ? "Saving..."
-                            : isEditMode
+                            : identityLocked
                                 ? "Update Portfolio"
                                 : "Create Portfolio"}
 
@@ -2755,6 +2960,38 @@ function Builder() {
 
 
             </form>
+
+            {reviewOpen && (
+                <div role="dialog" aria-modal="true" aria-labelledby="portfolio-review-title" style={{ position: "fixed", inset: 0, zIndex: 1000, overflow: "auto", background: "rgba(0,0,0,.65)", padding: "2rem" }}>
+                    <section style={{ maxWidth: "900px", margin: "0 auto", background: "white", color: "#111", padding: "1.5rem", borderRadius: "8px" }}>
+                        <h2 id="portfolio-review-title">Review portfolio information</h2>
+                        <p>Name: {formData.personal.name || "—"}</p>
+                        <p>Email: {formData.personal.email || "—"}</p>
+                        <p>Phone: {formData.personal.phone || "—"}</p>
+                        <p>Location: {formData.personal.location || "—"}</p>
+                        <p>Short introduction: {formData.shortIntro || "—"}</p>
+                        <p>About: {formData.about || "—"}</p>
+                        <p>Skills: {formData.skills.filter(Boolean).join(", ") || "—"}</p>
+                        <h3>Education</h3>
+                        {formData.education.map((item, index) => <p key={`edu-${index}`}>{item.degree} — {item.institution} ({item.startYear}–{item.endYear}) {item.description}</p>)}
+                        <h3>Experience</h3>
+                        {formData.experience.map((item, index) => <p key={`exp-${index}`}>{item.role} — {item.company} ({item.startDate}–{item.endDate}) {item.description}</p>)}
+                        <h3>Projects</h3>
+                        {formData.projects.map((item, index) => <p key={`project-${index}`}>{item.title}: {item.description} {item.technologies?.join(", ")}</p>)}
+                        <h3>Social links</h3>
+                        <p>GitHub: {formData.social.github || "—"} · LinkedIn: {formData.social.linkedin || "—"} · Twitter: {formData.social.twitter || "—"}</p>
+                        <h3>Template and customization</h3>
+                        <p>{selectedTemplateDetails?.template?.name || "Selected template"} · {formData.fontFamily} · {formData.primaryColor} / {formData.secondaryColor} / {formData.backgroundColor} / {formData.textColor}</p>
+                        <p>Visible sections: {Object.entries(formData.sectionVisibility).filter(([, visible]) => visible).map(([section]) => section).join(", ") || "none"}; order: {formData.sectionOrder.join(" → ") || "default"}</p>
+                        {formData.customSections.map((section, index) => <p key={`custom-${index}`}>{section.title}: {section.content}</p>)}
+                        {error && <p role="alert">{error}</p>}
+                        <button type="button" disabled={loading || uploadingFiles} onClick={() => setReviewOpen(false)}>Back</button>{" "}
+                        <button type="button" disabled={loading || uploadingFiles} onClick={submitReviewedPortfolio}>
+                            {uploadingFiles ? "Uploading files…" : loading ? "Saving…" : "Proceed"}
+                        </button>
+                    </section>
+                </div>
+            )}
 
         </div>
     );

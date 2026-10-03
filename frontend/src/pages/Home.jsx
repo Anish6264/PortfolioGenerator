@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import TemplatePricing from "../components/TemplatePricing";
 
 const professions = [
     ["developer", "Software Developer"],
@@ -17,12 +18,9 @@ const professions = [
 ];
 const professionLabels = Object.fromEntries(professions);
 
-const getGenerationCost = (template) =>
-    Math.max(1, template.creditCost || 0);
-
 function Home() {
     const navigate = useNavigate();
-    const { user, isAuthenticated, isAuthLoading } = useAuth();
+    const { isAuthenticated, isAuthLoading } = useAuth();
     const [templates, setTemplates] = useState([]);
     const [error, setError] = useState("");
     const [accessMessage, setAccessMessage] = useState("");
@@ -52,12 +50,6 @@ function Home() {
 
         if (!isAuthenticated) {
             navigate("/login", { state: { from: builderPath } });
-            return;
-        }
-
-        const cost = getGenerationCost(template);
-        if ((user?.credits ?? 0) < cost) {
-            setAccessMessage(`You need ${cost} credits to use this template.`);
             return;
         }
 
@@ -107,11 +99,7 @@ function Home() {
                                 )}
                                 <h3>{template.name}</h3>
                                 <p>Category: {professionLabels[template.category] || template.category}</p>
-                                <p>
-                                    {template.isPremium ? "Premium" : "Free"}
-                                    {" · "}
-                                    {getGenerationCost(template)} credit{getGenerationCost(template) === 1 ? "" : "s"} per generation
-                                </p>
+                                <TemplatePricing template={template} />
                                 <Link to={`/templates/${template._id}`}>Preview</Link>
                                 {" "}
                                 <button

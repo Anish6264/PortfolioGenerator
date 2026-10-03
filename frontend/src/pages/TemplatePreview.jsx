@@ -8,6 +8,7 @@ import {
 import { useAuth } from "../hooks/useAuth";
 
 import api from "../services/api";
+import TemplatePricing from "../components/TemplatePricing";
 
 const categoryLabels = {
     developer: "Software Developer",
@@ -100,11 +101,7 @@ const navigate = useNavigate();
                 Category: {categoryLabels[template.category] || template.category}
             </p>
 
-            <p>
-                {template.isPremium ? "Premium" : "Free"}
-                {" · "}
-                {Math.max(1, template.creditCost || 0)} credit{Math.max(1, template.creditCost || 0) === 1 ? "" : "s"} per generation
-            </p>
+            <TemplatePricing template={template} />
 
             {accessMessage && <p role="status">{accessMessage}</p>}
 

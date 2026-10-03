@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import api from "../services/api";
+import TemplatePricing from "../components/TemplatePricing";
 
 function AdminTemplates() {
     const [templates, setTemplates] = useState([]);
@@ -62,8 +63,7 @@ function AdminTemplates() {
                     <tr>
                         <th scope="col">Template</th>
                         <th scope="col">Category</th>
-                        <th scope="col">Access</th>
-                        <th scope="col">Cost</th>
+                        <th scope="col">Access and generation</th>
                         <th scope="col">Status</th>
                         <th scope="col">Actions</th>
                     </tr>
@@ -73,8 +73,9 @@ function AdminTemplates() {
                         <tr key={template._id}>
                             <td>{template.name}</td>
                             <td>{template.category}</td>
-                            <td>{template.isPremium ? "Premium" : "Free"}</td>
-                            <td>{template.creditCost} credits</td>
+                            <td>
+                                <TemplatePricing template={template} />
+                            </td>
                             <td>{template.isActive ? "Active" : "Inactive"}</td>
                             <td>
                                 <Link to={`/admin/templates/${template._id}/edit`}>Edit</Link>{" "}

@@ -49,6 +49,32 @@ const portfolioSchema = new mongoose.Schema(
             default: "draft"
         },
 
+        downloadPaid: {
+            type: Boolean,
+            default: false
+        },
+
+        contentVersion: {
+            type: Number,
+            default: 1,
+            min: 1,
+            validate: Number.isInteger
+        },
+
+        paidDownloadVersion: {
+            type: Number,
+            default: 0,
+            min: 0,
+            validate: Number.isInteger
+        },
+
+        downloadReservation: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "CreditReservation",
+            default: null,
+            select: false
+        },
+
         slug: {
             type: String,
             trim: true,

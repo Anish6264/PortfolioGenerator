@@ -82,7 +82,66 @@ const projectIdentity = (project) => {
     return `fallback:${String(project?.title || "").trim().toLowerCase()}|${String(project?.description || "").trim().toLowerCase()}`;
 };
 
-const mergeProposedPortfolioData = (current, proposed, selectedFields = {}, selectedArrays = {}, replacements = {}, selectedReplacements = {}, repositoryProjects = []) => {
+const normalizeGitHubUrl = (value) => {
+    if (typeof value !== "string" || !value.trim()) return "";
+    try {
+        const url = new URL(value.trim());
+        if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "github.com") return "";
+        const path = url.pathname.replace(/\.git\/?$/i, "").replace(/\/$/, "").toLowerCase();
+        return `https://github.com${path}`;
+    } catch {
+        return "";
+    }
+};
+
+const normalizedProjectName = (value) =>
+    typeof value === "string" ? value.trim().replace(/\.git$/i, "").toLocaleLowerCase().replace(/[^a-z\d]/g, "") : "";
+
+const similarityRatio = (left, right) => {
+    if (left.length < 2 || right.length < 2) return 0;
+    const bigrams = (value) => new Set(Array.from({ length: value.length - 1 }, (_, index) => value.slice(index, index + 2)));
+    const leftBigrams = bigrams(left);
+    const rightBigrams = bigrams(right);
+    let overlap = 0;
+    for (const value of leftBigrams) if (rightBigrams.has(value)) overlap += 1;
+    return (2 * overlap) / (leftBigrams.size + rightBigrams.size);
+};
+
+const reconcileGitHubProjects = (currentProjects = [], repositories = []) => {
+    const existing = (Array.isArray(currentProjects) ? currentProjects : [])
+        .map((project, index) => ({ project, index }))
+        .filter(({ project }) => project && typeof project === "object" && [
+            project.title,
+            project.description,
+            project.githubUrl,
+            project.liveUrl,
+            ...(Array.isArray(project.technologies) ? project.technologies : [])
+        ].some((value) => typeof value === "string" && value.trim()));
+
+    return (Array.isArray(repositories) ? repositories : []).map((repository) => {
+        const repoUrl = normalizeGitHubUrl(repository?.githubUrl);
+        const repoName = normalizedProjectName(repository?.name || repository?.title);
+        let selectedMatch = null;
+
+        for (const candidate of existing) {
+            const projectUrl = normalizeGitHubUrl(candidate.project.githubUrl);
+            if (repoUrl && projectUrl && repoUrl === projectUrl) {
+                return { type: "likely-match", confidence: "exact-url", projectIndex: candidate.index, reason: "Matching GitHub URL" };
+            }
+            const projectName = normalizedProjectName(candidate.project.title);
+            if (repoName && projectName && repoName === projectName) {
+                return { type: "likely-match", confidence: "exact-title", projectIndex: candidate.index, reason: "Matching project and repository names" };
+            }
+            const similarity = similarityRatio(projectName, repoName);
+            if (projectName.length >= 8 && repoName.length >= 8 && similarity >= 0.88 && (!selectedMatch || similarity > selectedMatch.similarity)) {
+                selectedMatch = { type: "likely-match", confidence: "strong-title-similarity", projectIndex: candidate.index, reason: "Strong project and repository name similarity", similarity };
+            }
+        }
+        return selectedMatch || { type: "no-match" };
+    });
+};
+
+const mergeProposedPortfolioData = (current, proposed, selectedFields = {}, selectedArrays = {}, replacements = {}, selectedReplacements = {}, repositoryProjects = [], repositoryDecisions = []) => {
     const merged = {
         ...current,
         personal: { ...(current.personal || {}) },
@@ -108,12 +167,65 @@ const mergeProposedPortfolioData = (current, proposed, selectedFields = {}, sele
         }
     }
     for (const field of Object.keys(objectArrayFields)) {
+        // GitHub project changes are applied only through the explicit per-repository
+        // decisions below. The generic proposed.projects list must not bypass them.
+        if (field === "projects" && repositoryDecisions.length) continue;
         if (Array.isArray(proposed[field])) {
             const additions = proposed[field].filter((_, index) => selectedArrays[field]?.[index] !== false);
             merged[field] = [...(Array.isArray(current[field]) ? current[field] : []), ...additions];
         }
     }
-    if (repositoryProjects.length) {
+    if (repositoryDecisions.length) {
+        const projects = [...(Array.isArray(merged.projects) ? merged.projects : [])];
+        const uniqueTechnologies = (values) => {
+            const unique = new Map();
+            for (const value of values) {
+                if (typeof value !== "string" || !value.trim()) continue;
+                const trimmed = value.trim();
+                const key = trimmed.toLocaleLowerCase();
+                if (!unique.has(key)) unique.set(key, trimmed);
+            }
+            return [...unique.values()];
+        };
+
+        for (const decision of repositoryDecisions) {
+            const candidate = decision.project;
+            if (!candidate || decision.action === "ignore") continue;
+            if (decision.action === "add" || decision.action === "add-separately") {
+                projects.push({
+                    title: candidate.title || candidate.name || "",
+                    description: candidate.description || "",
+                    technologies: uniqueTechnologies(Array.isArray(candidate.technologies) ? candidate.technologies : []),
+                    githubUrl: normalizeGitHubUrl(candidate.githubUrl),
+                    liveUrl: validExternalUrl(candidate.liveUrl) ? (candidate.liveUrl || "") : ""
+                });
+                continue;
+            }
+
+            if (decision.action === "merge" && Number.isInteger(decision.projectIndex) && projects[decision.projectIndex]) {
+                const resumeProject = projects[decision.projectIndex];
+                projects[decision.projectIndex] = {
+                    ...resumeProject,
+                    title: resumeProject.title?.trim() || candidate.title || candidate.name || "",
+                    description: resumeProject.description?.trim() || candidate.description || "",
+                    technologies: uniqueTechnologies([
+                        ...(Array.isArray(resumeProject.technologies) ? resumeProject.technologies : []),
+                        ...(Array.isArray(candidate.technologies) ? candidate.technologies : [])
+                    ]),
+                    githubUrl: normalizeGitHubUrl(candidate.githubUrl) || resumeProject.githubUrl || "",
+                    liveUrl: validExternalUrl(candidate.liveUrl) && candidate.liveUrl
+                        ? candidate.liveUrl
+                        : resumeProject.liveUrl || ""
+                };
+            }
+        }
+        const hasAppliedRepository = repositoryDecisions.some(({ action }) => ["add", "add-separately", "merge"].includes(action));
+        merged.projects = hasAppliedRepository
+            ? projects.filter((project) => [project?.title, project?.description, project?.githubUrl, project?.liveUrl,
+                ...(Array.isArray(project?.technologies) ? project.technologies : [])]
+                .some((value) => typeof value === "string" && value.trim()))
+            : projects;
+    } else if (repositoryProjects.length) {
         const projects = [...(Array.isArray(merged.projects) ? merged.projects : [])];
         const identities = new Set(projects.map(projectIdentity));
         for (const project of repositoryProjects) {
@@ -139,4 +251,9 @@ const mergeProposedPortfolioData = (current, proposed, selectedFields = {}, sele
     return merged;
 };
 
-export { validateProposedPortfolioData, mergeProposedPortfolioData, projectIdentity };
+export {
+    validateProposedPortfolioData,
+    mergeProposedPortfolioData,
+    projectIdentity,
+    reconcileGitHubProjects
+};

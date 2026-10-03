@@ -26,7 +26,7 @@ const seedTemplates = async () => {
                 category: "developer",
                 templatePath: "modern-developer",
                 isPremium: false,
-                creditCost: 0,
+                creditCost: 1,
                 isActive: true
             },
             {
@@ -37,7 +37,7 @@ const seedTemplates = async () => {
                 category: "developer",
                 templatePath: "minimal-developer",
                 isPremium: false,
-                creditCost: 0,
+                creditCost: 1,
                 isActive: true
             },
             {
@@ -48,7 +48,7 @@ const seedTemplates = async () => {
                 category: "developer",
                 templatePath: "professional-developer",
                 isPremium: false,
-                creditCost: 0,
+                creditCost: 1,
                 isActive: true
             },
             {
@@ -59,7 +59,7 @@ const seedTemplates = async () => {
                 category: "ml-engineer",
                 templatePath: "ml-engineer",
                 isPremium: false,
-                creditCost: 0,
+                creditCost: 1,
                 isActive: true
             },
             {
@@ -70,7 +70,7 @@ const seedTemplates = async () => {
                 category: "data-scientist",
                 templatePath: "data-scientist",
                 isPremium: false,
-                creditCost: 0,
+                creditCost: 1,
                 isActive: true
             },
             {
@@ -81,7 +81,7 @@ const seedTemplates = async () => {
                 category: "ui-ux",
                 templatePath: "ui-ux",
                 isPremium: false,
-                creditCost: 0,
+                creditCost: 1,
                 isActive: true
             },
             {
@@ -92,17 +92,26 @@ const seedTemplates = async () => {
                 category: "cybersecurity",
                 templatePath: "cybersecurity-devops",
                 isPremium: false,
-                creditCost: 0,
+                creditCost: 1,
                 isActive: true
             }
         ];
 
         for (const template of templates) {
-            await Template.findOneAndUpdate(
-                { templatePath: template.templatePath },
-                { $set: template },
-                { upsert: true, new: true, setDefaultsOnInsert: true }
-            );
+            let existing = await Template.findOne({ templatePath: template.templatePath });
+            if (!existing) {
+                await Template.create(template);
+                continue;
+            }
+
+            const seededDetails = { ...template };
+            delete seededDetails.isPremium;
+            delete seededDetails.creditCost;
+            existing.set(seededDetails);
+            if (!Number.isInteger(existing.creditCost) || existing.creditCost < 1) {
+                existing.creditCost = 1;
+            }
+            await existing.save();
         }
 
         console.log("Templates seeded successfully");

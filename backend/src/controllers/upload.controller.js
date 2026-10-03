@@ -28,9 +28,24 @@ const portfolioAssetResponse = (portfolio) => ({
 
 const findOwnedPortfolio = async (portfolioId, userId) => {
     if (!isValidPortfolioId(portfolioId)) return { error: { status: 400, message: "Invalid portfolio ID." } };
-    const portfolio = await Portfolio.findOne({ _id: portfolioId, user: userId });
+    const portfolio = await Portfolio.findOne({ _id: portfolioId, user: userId }).select("+downloadReservation");
     if (!portfolio) return { error: { status: 404, message: "Portfolio not found." } };
     return { portfolio };
+};
+
+const savePortfolioContentVersion = async (portfolio, updates) => {
+    if (portfolio.downloadReservation) return null;
+    const version = Number.isInteger(portfolio.contentVersion) && portfolio.contentVersion >= 1 ? portfolio.contentVersion : 1;
+    return Portfolio.findOneAndUpdate(
+        {
+            _id: portfolio._id,
+            user: portfolio.user,
+            downloadReservation: null,
+            $or: [{ contentVersion: version }, { contentVersion: { $exists: false } }]
+        },
+        { $set: { ...updates, downloadPaid: false, contentVersion: version + 1 } },
+        { returnDocument: "after", runValidators: true }
+    );
 };
 
 const isReferencedElsewhere = async (portfolio, kind, reference) => {
@@ -88,13 +103,30 @@ const uploadPortfolioFiles = async (req, res) => {
             replaced.push({ kind: "resume", oldReference, newReference: reference });
         }
 
-        await portfolio.save();
+        const updates = {};
+        if (req.files?.profileImage?.[0]) {
+            updates["personal.profileImage"] = portfolio.personal.profileImage;
+            updates["personal.profileImageOriginalName"] = portfolio.personal.profileImageOriginalName;
+        }
+        if (req.files?.resume?.[0]) {
+            updates.resume = portfolio.resume;
+            updates.resumeOriginalName = portfolio.resumeOriginalName;
+        }
+        if (!Object.keys(updates).length) {
+            await cleanupNewUploads();
+            return res.status(400).json({ message: "No portfolio files were provided." });
+        }
+        const savedPortfolio = await savePortfolioContentVersion(portfolio, updates);
+        if (!savedPortfolio) {
+            await cleanupNewUploads();
+            return res.status(409).json({ code: "DOWNLOAD_IN_PROGRESS", message: "Portfolio files cannot be changed while a download is in progress." });
+        }
         portfolioSaved = true;
         for (const item of replaced) {
             await cleanupReplacedUpload(portfolio, item.kind, item.oldReference, item.newReference);
         }
 
-        return res.status(200).json({ message: "Files uploaded successfully", ...portfolioAssetResponse(portfolio) });
+        return res.status(200).json({ message: "Files uploaded successfully", ...portfolioAssetResponse(savedPortfolio) });
     } catch (error) {
         if (!portfolioSaved) await cleanupNewUploads();
         if (["ValidationError", "CastError"].includes(error?.name)) {
@@ -115,17 +147,24 @@ const removePortfolioAsset = (kind) => async (req, res) => {
         const reference = owner?.[fields.reference] || "";
         if (!reference) return res.status(404).json({ message: `No ${kind === "resume" ? "resume" : "profile image"} is uploaded.` });
 
+        const savedPortfolio = await savePortfolioContentVersion(portfolio, {
+            [kind === "resume" ? "resume" : "personal.profileImage"]: "",
+            [kind === "resume" ? "resumeOriginalName" : "personal.profileImageOriginalName"]: ""
+        });
+        if (!savedPortfolio) {
+            return res.status(409).json({ code: "DOWNLOAD_IN_PROGRESS", message: "Portfolio files cannot be changed while a download is in progress." });
+        }
         const isExternalImageUrl = kind === "profileImage" && /^https?:\/\//i.test(reference);
         if (!isExternalImageUrl && !await isReferencedElsewhere(portfolio, kind, reference)) {
-            await removeManagedUpload(reference, kind);
+            try {
+                await removeManagedUpload(reference, kind);
+            } catch (error) {
+                console.error("Removed upload cleanup failed:", error?.code || "UPLOAD_CLEANUP_FAILED");
+            }
         }
-
-        owner[fields.reference] = "";
-        owner[fields.originalName] = "";
-        await portfolio.save();
         return res.status(200).json({
             message: `${kind === "resume" ? "Resume" : "Profile image"} removed successfully.`,
-            ...portfolioAssetResponse(portfolio)
+            ...portfolioAssetResponse(savedPortfolio)
         });
     } catch (error) {
         console.error("Portfolio asset removal failed:", error?.code || error?.name || "ASSET_REMOVAL_FAILED");

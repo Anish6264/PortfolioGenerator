@@ -64,48 +64,74 @@ const normalizeResumeAnalysis = (input) => {
         return error;
     };
     const isObject = (value) => value && typeof value === "object" && !Array.isArray(value);
-    const containsHtml = (value) => typeof value === "string" && /<\s*\/?\s*[a-z!][^>]*>/i.test(value);
-    const expectedFields = ["name", "email", "shortIntro", "about", "skills"];
-    if (!isObject(input) || Object.keys(input).length !== expectedFields.length || expectedFields.some((field) => !Object.hasOwn(input, field))) {
+    const hasExactKeys = (value, keys) => isObject(value) &&
+        Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+    const scalar = (value, max) => {
+        if (typeof value !== "string" || value.length > max || /<\s*\/?\s*[a-z!][^>]*>/i.test(value)) throw invalid();
+        return value.trim();
+    };
+    const list = (value, maxItems, itemMax) => {
+        if (!Array.isArray(value) || value.length > maxItems) throw invalid();
+        return value.map((item) => scalar(item, itemMax)).filter(Boolean);
+    };
+    const rows = (value, fields, fieldLimits, hasTechnologies = false) => {
+        if (!Array.isArray(value) || value.length > 50) throw invalid();
+        return value.map((row) => {
+            const keys = hasTechnologies ? [...fields, "technologies"] : fields;
+            if (!hasExactKeys(row, keys)) throw invalid();
+            const result = {};
+            for (const field of fields) result[field] = scalar(row[field], fieldLimits[field]);
+            if (hasTechnologies) result.technologies = list(row.technologies, 30, 100);
+            for (const urlField of ["liveUrl", "githubUrl"]) {
+                if (Object.hasOwn(result, urlField)) result[urlField] = safeUrl(result[urlField]);
+            }
+            return result;
+        }).filter((row) => Object.values(row).some((value) => Array.isArray(value) ? value.length : Boolean(value)));
+    };
+
+    const personalFields = ["name", "title", "email", "phone", "location"];
+    const socialFields = ["github", "linkedin", "twitter"];
+    const educationFields = ["degree", "institution", "startYear", "endYear", "description"];
+    const experienceFields = ["company", "role", "startDate", "endDate", "description"];
+    const projectFields = ["title", "description", "liveUrl", "githubUrl"];
+    const rootFields = ["personal", "shortIntro", "about", "skills", "education", "experience", "projects", "social"];
+    if (!hasExactKeys(input, rootFields) || !hasExactKeys(input.personal, personalFields) || !hasExactKeys(input.social, socialFields)) {
         throw invalid();
     }
 
-    for (const field of ["name", "email", "shortIntro", "about"]) {
-        if (input[field] !== null && (typeof input[field] !== "string" || containsHtml(input[field]))) throw invalid();
-    }
-    if (!Array.isArray(input.skills) || input.skills.length > 100 || input.skills.some((skill) => typeof skill !== "string" || skill.length > 100 || containsHtml(skill))) {
-        throw invalid();
-    }
-
-    const name = cleanText(input.name, limits.name);
-    const email = cleanText(input.email, limits.email);
-    const shortIntro = cleanText(input.shortIntro, limits.shortIntro);
-    const about = cleanText(input.about, limits.about);
-    if ((input.name && input.name.length > limits.name) || (input.email && input.email.length > limits.email) ||
-        (input.shortIntro && input.shortIntro.length > limits.shortIntro) || (input.about && input.about.length > limits.about)) {
-        throw invalid();
-    }
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw invalid();
-
-    const skills = [];
-    const seenSkills = new Set();
-    for (const rawSkill of input.skills) {
-        const skill = cleanText(rawSkill, 100);
-        const key = skill.toLocaleLowerCase();
-        if (skill && !seenSkills.has(key)) {
-            skills.push(skill);
-            seenSkills.add(key);
-        }
-    }
+    const personal = Object.fromEntries(personalFields.map((field) => [field, scalar(input.personal[field], limits[field])]));
+    if (personal.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal.email)) throw invalid();
+    const social = Object.fromEntries(socialFields.map((field) => [field, safeUrl(scalar(input.social[field], 2048))]));
+    const shortIntro = scalar(input.shortIntro, limits.shortIntro);
+    const about = scalar(input.about, limits.about);
+    const rawSkills = list(input.skills, 100, 100);
+    const skills = [...new Map(rawSkills.map((skill) => [skill.toLocaleLowerCase(), skill])).values()];
+    const education = rows(input.education, educationFields, rowLimits.education);
+    const experience = rows(input.experience, experienceFields, rowLimits.experience);
+    const projects = rows(input.projects, projectFields, rowLimits.projects, true);
+    const seenProjects = new Set();
+    const uniqueProjects = projects.filter((project) => {
+        const identity = project.githubUrl
+            ? `url:${project.githubUrl.toLowerCase().replace(/\/$/, "")}`
+            : project.title
+                ? `name:${project.title.toLocaleLowerCase()}`
+                : `description:${project.description.toLocaleLowerCase()}`;
+        if (seenProjects.has(identity)) return false;
+        seenProjects.add(identity);
+        return true;
+    });
 
     const proposedData = {};
-    const personal = {};
-    if (name) personal.name = name;
-    if (email) personal.email = email;
-    if (Object.keys(personal).length) proposedData.personal = personal;
+    const nonEmptyPersonal = Object.fromEntries(Object.entries(personal).filter(([, value]) => value));
+    const nonEmptySocial = Object.fromEntries(Object.entries(social).filter(([, value]) => value));
+    if (Object.keys(nonEmptyPersonal).length) proposedData.personal = nonEmptyPersonal;
     if (shortIntro) proposedData.shortIntro = shortIntro;
     if (about) proposedData.about = about;
     if (skills.length) proposedData.skills = skills;
+    if (education.length) proposedData.education = education;
+    if (experience.length) proposedData.experience = experience;
+    if (uniqueProjects.length) proposedData.projects = uniqueProjects;
+    if (Object.keys(nonEmptySocial).length) proposedData.social = nonEmptySocial;
     if (!Object.keys(proposedData).length) throw invalid();
     return proposedData;
 };

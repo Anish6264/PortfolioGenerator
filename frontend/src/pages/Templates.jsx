@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import TemplatePricing from "../components/TemplatePricing";
 
 const categoryLabels = {
     developer: "Software Developer",
@@ -136,11 +137,7 @@ function Templates() {
                                 }
                             </p>
 
-                            <p>
-                                {template.isPremium ? "Premium" : "Free"}
-                                {" · "}
-                                {Math.max(1, template.creditCost || 0)} credit{Math.max(1, template.creditCost || 0) === 1 ? "" : "s"} per generation
-                            </p>
+                            <TemplatePricing template={template} />
 
                             <Link
                                 to={`/templates/${template._id}${profession

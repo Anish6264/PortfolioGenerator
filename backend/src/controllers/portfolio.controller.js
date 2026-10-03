@@ -93,6 +93,13 @@ const clonePortfolioContent = (value) => {
     return plainValue;
 };
 
+const serializeDownloadState = (portfolio) => {
+    const value = portfolio?.toObject ? portfolio.toObject() : { ...portfolio };
+    const contentVersion = Number.isInteger(value.contentVersion) && value.contentVersion >= 1 ? value.contentVersion : 1;
+    const paidDownloadVersion = Number.isInteger(value.paidDownloadVersion) ? value.paidDownloadVersion : 0;
+    return { ...value, contentVersion, paidDownloadVersion, downloadPaid: paidDownloadVersion === contentVersion };
+};
+
 const validatePortfolioData = (data, partial = false) => {
     if (!isObject(data)) {
         return "Portfolio data must be an object";
@@ -299,13 +306,17 @@ const createPortfolio = async (req, res) => {
 
         const portfolio = await createPortfolioWithUniqueSlug(Portfolio, {
             ...portfolioData,
+            downloadPaid: false,
+            contentVersion: 1,
+            paidDownloadVersion: 0,
+            downloadReservation: null,
             status: "draft",
             user: req.user.id
         }, portfolioData.personal.name || portfolioData.personal.title);
 
         return res.status(201).json({
             message: "Portfolio created successfully",
-            portfolio
+            portfolio: serializeDownloadState(portfolio)
         });
     } catch (error) {
         return sendPortfolioError(res, error, "Create portfolio");
@@ -319,7 +330,7 @@ const getMyPortfolios = async (req, res) => {
         }).populate("template", "name category isPremium creditCost");
 
         return res.status(200).json({
-            portfolios
+            portfolios: portfolios.map(serializeDownloadState)
         });
     } catch (error) {
         console.error("Get portfolios error:", error);
@@ -348,7 +359,7 @@ const getPortfolioById = async (req, res) => {
         }
 
         return res.status(200).json({
-            portfolio
+            portfolio: serializeDownloadState(portfolio)
         });
     } catch (error) {
         console.error("Get portfolio error:", error);
@@ -373,24 +384,41 @@ const updatePortfolio = async (req, res) => {
                 .map((field) => [field, req.body[field]])
         );
 
+        const existingPortfolio = await Portfolio.findOne({ _id: req.params.id, user: req.user.id })
+            .select("+downloadReservation");
+        if (!existingPortfolio) return res.status(404).json({ message: "Portfolio not found" });
+
         const normalizedUpdates = trimStrings(updates);
+        if (normalizedUpdates.personal) {
+            normalizedUpdates.personal = {
+                ...(existingPortfolio.personal?.toObject?.() || existingPortfolio.personal || {}),
+                ...normalizedUpdates.personal,
+                name: existingPortfolio.personal.name,
+                email: existingPortfolio.personal.email
+            };
+        }
         const validationError = validatePortfolioData(normalizedUpdates, true);
 
         if (validationError) {
             return res.status(400).json({ message: validationError });
         }
 
+        let changesTemplate = false;
         if (Object.prototype.hasOwnProperty.call(normalizedUpdates, "template")) {
-            const currentPortfolio = await Portfolio.findOne({
-                _id: req.params.id,
-                user: req.user.id
-            }).select("template");
+            const currentPortfolio = existingPortfolio;
 
             if (!currentPortfolio) {
                 return res.status(404).json({ message: "Portfolio not found" });
             }
 
             if (String(currentPortfolio.template) !== normalizedUpdates.template) {
+                changesTemplate = true;
+                if (currentPortfolio.downloadReservation) {
+                    return res.status(409).json({
+                        code: "DOWNLOAD_IN_PROGRESS",
+                        message: "The portfolio template cannot be changed during its first download. Please retry shortly."
+                    });
+                }
                 const selectedTemplate = await Template.findById(normalizedUpdates.template).select("isActive");
                 if (!selectedTemplate || !selectedTemplate.isActive) {
                     return res.status(404).json({
@@ -401,19 +429,40 @@ const updatePortfolio = async (req, res) => {
             }
         }
 
+        const contentChanged = Object.entries(normalizedUpdates).some(([key, value]) => {
+            const current = existingPortfolio.get(key);
+            return JSON.stringify(value) !== JSON.stringify(current);
+        });
+        if (existingPortfolio.downloadReservation && contentChanged) {
+            return res.status(409).json({ code: "DOWNLOAD_IN_PROGRESS", message: "The portfolio cannot be changed while a download is in progress." });
+        }
+        const currentVersion = Number.isInteger(existingPortfolio.contentVersion) && existingPortfolio.contentVersion >= 1 ? existingPortfolio.contentVersion : 1;
+        const updateFilter = {
+            _id: req.params.id,
+            user: req.user.id,
+            downloadReservation: null,
+            $or: [{ contentVersion: currentVersion }, { contentVersion: { $exists: false } }]
+        };
         const portfolio = await Portfolio.findOneAndUpdate(
+            updateFilter,
             {
-                _id: req.params.id,
-                user: req.user.id
+                $set: {
+                    ...normalizedUpdates,
+                    ...(contentChanged ? { downloadPaid: false, contentVersion: currentVersion + 1 } : {})
+                },
             },
-            normalizedUpdates,
             {
-                new: true,
+                returnDocument: "after",
                 runValidators: true
             }
         );
 
         if (!portfolio) {
+            const current = await Portfolio.findOne({ _id: req.params.id, user: req.user.id }).select("+downloadReservation");
+            if (current?.downloadReservation) {
+                return res.status(409).json({ code: "DOWNLOAD_IN_PROGRESS", message: "The portfolio cannot be changed while a download is in progress." });
+            }
+            if (current) return res.status(409).json({ code: "PORTFOLIO_CHANGED", message: "The portfolio changed while saving. Please retry." });
             return res.status(404).json({
                 message: "Portfolio not found"
             });
@@ -421,7 +470,7 @@ const updatePortfolio = async (req, res) => {
 
         return res.status(200).json({
             message: "Portfolio updated successfully",
-            portfolio
+            portfolio: serializeDownloadState(portfolio)
         });
     } catch (error) {
         return sendPortfolioError(res, error, "Update portfolio");
@@ -468,7 +517,11 @@ const duplicatePortfolio = async (req, res) => {
             customSections: clonePortfolioContent(source.customSections),
             seoTitle: source.seoTitle,
             seoDescription: source.seoDescription,
-            status: "draft"
+            status: "draft",
+            downloadPaid: false,
+            contentVersion: 1,
+            paidDownloadVersion: 0,
+            downloadReservation: null
         };
         const duplicate = await createPortfolioWithUniqueSlug(
             Portfolio,
@@ -479,7 +532,7 @@ const duplicatePortfolio = async (req, res) => {
 
         return res.status(201).json({
             message: "Portfolio duplicated successfully",
-            portfolio: duplicate
+            portfolio: serializeDownloadState(duplicate)
         });
     } catch (error) {
         return sendPortfolioError(res, error, "Duplicate portfolio");
@@ -515,7 +568,7 @@ const updatePortfolioStatus = async (req, res) => {
             : await Portfolio.findOneAndUpdate(
                 filter,
                 { status },
-                { new: true, runValidators: true }
+                { returnDocument: "after", runValidators: true }
             );
 
         if (!portfolio) {
@@ -543,10 +596,19 @@ const deletePortfolio = async (req, res) => {
 
         const portfolio = await Portfolio.findOneAndDelete({
             _id: req.params.id,
-            user: req.user.id
+            user: req.user.id,
+            downloadReservation: null
         });
 
         if (!portfolio) {
+            const existing = await Portfolio.findOne({ _id: req.params.id, user: req.user.id })
+                .select("+downloadReservation");
+            if (existing?.downloadReservation) {
+                return res.status(409).json({
+                    code: "DOWNLOAD_IN_PROGRESS",
+                    message: "The portfolio cannot be deleted during its first download. Please retry shortly."
+                });
+            }
             return res.status(404).json({
                 message: "Portfolio not found"
             });

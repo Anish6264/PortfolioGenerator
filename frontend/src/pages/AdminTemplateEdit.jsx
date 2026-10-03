@@ -10,7 +10,7 @@ const emptyTemplate = {
     thumbnail: "",
     previewUrl: "",
     isPremium: false,
-    creditCost: 0,
+    creditCost: 1,
     isActive: true
 };
 
@@ -34,7 +34,11 @@ function AdminTemplateEdit() {
         api.get(`/admin/templates/${id}`)
             .then((response) => {
                 if (!active) return;
-                setTemplate({ ...emptyTemplate, ...response.data.template });
+                setTemplate({
+                    ...emptyTemplate,
+                    ...response.data.template,
+                    creditCost: response.data.template.isPremium === true ? response.data.template.creditCost : 1
+                });
                 setCategories(response.data.categories || []);
             })
             .catch((requestError) => {
@@ -58,7 +62,9 @@ function AdminTemplateEdit() {
         setTemplate((current) => ({
             ...current,
             isPremium,
-            creditCost: isPremium ? Math.max(1, current.creditCost || 0) : 0
+            creditCost: !isPremium ? 1 : Number.isInteger(current.creditCost) && current.creditCost >= 1
+                ? current.creditCost
+                : 1
         }));
     };
 
@@ -71,8 +77,8 @@ function AdminTemplateEdit() {
             setError("Enter a name, description, and supported category.");
             return;
         }
-        if (template.isPremium && (!Number.isSafeInteger(template.creditCost) || template.creditCost <= 0)) {
-            setError("Premium templates need a positive whole-number credit cost.");
+        if (!Number.isSafeInteger(template.creditCost) || template.creditCost < 1 || (!template.isPremium && template.creditCost !== 1)) {
+            setError("Templates need a positive whole-number credit cost.");
             return;
         }
 
@@ -85,7 +91,7 @@ function AdminTemplateEdit() {
                 thumbnail: template.thumbnail,
                 previewUrl: template.previewUrl,
                 isPremium: template.isPremium,
-                creditCost: template.isPremium ? template.creditCost : 0,
+                creditCost: template.isPremium ? template.creditCost : 1,
                 isActive: template.isActive
             });
             setTemplate({ ...emptyTemplate, ...response.data.template });
@@ -145,13 +151,13 @@ function AdminTemplateEdit() {
                     <input
                         id="template-credit-cost"
                         type="number"
-                        min={template.isPremium ? 1 : 0}
+                        min={1}
                         step="1"
                         value={template.creditCost}
                         disabled={!template.isPremium}
                         onChange={(event) => updateField("creditCost", Number(event.target.value))}
                     />
-                    <span> credits per generation</span>
+                    <span> credits on first download</span>
                 </p>
                 <p>
                     <label>

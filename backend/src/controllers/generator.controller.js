@@ -5,9 +5,16 @@ const {
     generatePortfolio,
     preparePreviewHtml
 } = require("../services/generator.service");
-const User = require("../models/User.js");
 const Portfolio = require("../models/Portfolio");
 const Template = require("../models/Template");
+const {
+    reservePortfolioDownload,
+    commitCreditReservation,
+    refundCreditReservation,
+    refreshPortfolioDownloadReservation
+} = require("../services/creditReservation.service");
+
+const PORTFOLIO_GENERATION_OPERATION = "portfolio_generation";
 
 const isValidPortfolioId = (id) => /^[a-f\d]{24}$/i.test(id || "");
 
@@ -36,24 +43,27 @@ const sendGeneratorError = (res, error, operation) => {
 
 
 const generatePortfolioZip = async (req, res) => {
-    let creditReserved = false;
-    let generationCost = 0;
-
-    const refundCredit = async () => {
-        if (!creditReserved) {
-            return;
+    let reservationId = null;
+    let reservationCompletion = null;
+    let archive = null;
+    let clientDisconnected = false;
+    let reservationHeartbeat = null;
+    const completeReservation = (status) => {
+        if (!reservationId) return Promise.resolve();
+        if (!reservationCompletion) {
+            const complete = status === "committed" ? commitCreditReservation : refundCreditReservation;
+            const completion = {
+                status,
+                promise: null
+            };
+            completion.promise = complete(reservationId, req.user.id, PORTFOLIO_GENERATION_OPERATION)
+                .catch((error) => {
+                    if (reservationCompletion === completion) reservationCompletion = null;
+                    throw error;
+                });
+            reservationCompletion = completion;
         }
-
-        creditReserved = false;
-
-        try {
-            await User.updateOne(
-                { _id: req.user.id },
-                { $inc: { credits: generationCost } }
-            );
-        } catch (error) {
-            console.error("Credit refund error:", error);
-        }
+        return reservationCompletion.promise.then(() => reservationCompletion.status);
     };
 
     try {
@@ -86,51 +96,54 @@ const generatePortfolioZip = async (req, res) => {
             });
         }
 
-        if (
-            !Number.isInteger(template.creditCost) ||
-            template.creditCost < 0 ||
-            (template.isPremium && template.creditCost < 1)
-        ) {
+        const generationCost = template.isPremium === true ? template.creditCost : 1;
+        if (!Number.isInteger(generationCost) || generationCost < 1) {
             throw new Error("Invalid template credit cost");
         }
 
-        // Free templates created before per-template costs used zero; retain
-        // the existing one-credit generation charge for those records.
-        generationCost = template.creditCost || 1;
+        const reserved = await reservePortfolioDownload({
+            userId: req.user.id,
+            portfolioId: portfolio._id,
+            templateId: template._id,
+            credits: generationCost,
+        });
 
-        const user = await User.findOneAndUpdate(
-            {
-                _id: req.user.id,
-                credits: {
-                    $gte: generationCost,
-                    $mod: [1, 0]
-                }
-            },
-            {
-                $inc: { credits: -generationCost }
-            },
-            {
-                new: true
-            }
-        );
-
-        if (!user) {
-            const currentUser = await User.findById(req.user.id).select("credits").lean();
+        if (reserved.status === "not_found") {
+            return res.status(404).json({ code: "PORTFOLIO_NOT_FOUND", message: "Portfolio not found" });
+        }
+        if (reserved.status === "template_changed") {
+            return res.status(409).json({ code: "PORTFOLIO_CHANGED", message: "The selected template changed. Please retry the download." });
+        }
+        if (reserved.status === "in_progress") {
+            return res.status(409).json({ code: "DOWNLOAD_IN_PROGRESS", message: "A first download is already in progress. Please retry shortly." });
+        }
+        if (reserved.status === "insufficient_credits") {
             return res.status(402).json({
                 code: "INSUFFICIENT_CREDITS",
                 message: "Insufficient credits",
                 requiredCredits: generationCost,
-                availableCredits: Number.isInteger(currentUser?.credits) ? currentUser.credits : 0
+                availableCredits: reserved.availableCredits
             });
         }
 
-        creditReserved = true;
-        res.once("finish", () => {
-            creditReserved = false;
-        });
-        res.once("close", () => {
-            void refundCredit();
-        });
+        if (reserved.status === "reserved") {
+            reservationId = reserved.reservation._id;
+            res.once("close", () => {
+                if (res.writableFinished) return;
+                clientDisconnected = true;
+                clearInterval(reservationHeartbeat);
+                archive?.abort();
+                void completeReservation("refunded").catch((error) => {
+                    console.error("Portfolio generation refund failed:", error?.code || "CREDIT_RESERVATION_ERROR");
+                });
+            });
+            reservationHeartbeat = setInterval(() => {
+                void refreshPortfolioDownloadReservation(reservationId, req.user.id).catch((error) => {
+                    console.error("Portfolio download reservation heartbeat failed:", error?.code || "CREDIT_RESERVATION_ERROR");
+                });
+            }, 60 * 1000);
+            reservationHeartbeat.unref?.();
+        }
 
         const result = await generatePortfolio(
             req.params.portfolioId,
@@ -155,7 +168,7 @@ const generatePortfolioZip = async (req, res) => {
         // Create ZIP
         // ------------------------------------------
 
-        const archive = new ZipArchive({
+        archive = new ZipArchive({
 
             zlib: {
                 level: 9
@@ -164,22 +177,16 @@ const generatePortfolioZip = async (req, res) => {
         });
 
 
-        archive.on("error", (error) => {
-            console.error("Generate portfolio archive error:", error);
-            void refundCredit();
-
-            if (!res.headersSent) {
-                res.status(500).json({
-                    code: "GENERATION_ERROR",
-                    message: "Portfolio generation failed"
-                });
-            } else {
-                res.destroy();
-            }
+        const archiveOutput = new Promise((resolve, reject) => {
+            archive.once("end", resolve);
+            archive.once("error", reject);
         });
 
-
-        archive.pipe(res);
+        if (clientDisconnected) {
+            archive.abort();
+            return;
+        }
+        archive.pipe(res, { end: false });
 
 
         // ------------------------------------------
@@ -256,16 +263,36 @@ const generatePortfolioZip = async (req, res) => {
         // ------------------------------------------
 
         await archive.finalize();
+        await archiveOutput;
+
+        if (reservationId) {
+            const completionStatus = await completeReservation("committed");
+            if (completionStatus !== "committed" || clientDisconnected || res.destroyed) {
+                if (!res.destroyed) res.destroy();
+                return;
+            }
+        }
+
+        if (!clientDisconnected && !res.destroyed) res.end();
 
     } catch (error) {
-        await refundCredit();
+        archive?.abort();
+        if (reservationHeartbeat) clearInterval(reservationHeartbeat);
+        try {
+            await completeReservation("refunded");
+        } catch (refundError) {
+            console.error("Portfolio generation refund failed:", refundError?.code || "CREDIT_RESERVATION_ERROR");
+        }
 
+        if (clientDisconnected || res.destroyed) return;
         if (!res.headersSent) {
             return sendGeneratorError(res, error, "Generate portfolio");
         }
 
         console.error("Generate portfolio error:", error);
         res.destroy();
+    } finally {
+        if (reservationHeartbeat) clearInterval(reservationHeartbeat);
 
     }
 
