@@ -66,7 +66,7 @@ app.use((req, res, next) => {
 app.use(cors({
     origin: (origin, callback) => callback(null, !origin || allowedOrigins.has(origin)),
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Authorization", "Content-Type"],
+    allowedHeaders: ["Authorization", "Content-Type", "X-Admin-Verification"],
     credentials: false,
     optionsSuccessStatus: 204
 }));

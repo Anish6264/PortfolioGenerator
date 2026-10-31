@@ -7,6 +7,8 @@ import TemplatePreview from "./pages/TemplatePreview";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 import Builder from "./pages/Builder";
 import Dashboard from "./pages/Dashboard";
@@ -17,6 +19,7 @@ import Profile from "./pages/Profile";
 import AdminTemplates from "./pages/AdminTemplates";
 import AdminTemplateEdit from "./pages/AdminTemplateEdit";
 import AdminRoute from "./components/AdminRoute";
+import AdminVerification from "./pages/AdminVerification";
 import BuyCredits from "./pages/BuyCredits";
 import CreditsBilling from "./pages/CreditsBilling";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -75,6 +78,8 @@ function App() {
                     path="/signup"
                     element={<Signup />}
                 />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
 
 
                 {/* Portfolio Builder - Create */}
@@ -125,6 +130,7 @@ function App() {
                     path="/admin"
                     element={<AdminRoute><AdminDashboard /></AdminRoute>}
                 />
+                <Route path="/admin/verify" element={<AdminVerification />} />
                 <Route
                     path="/admin/users"
                     element={<AdminRoute><AdminUsers /></AdminRoute>}

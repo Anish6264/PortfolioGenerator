@@ -1,0 +1,26 @@
+.admin-verification-page { min-height: 72vh; display: grid; place-items: center; padding: 28px 16px; box-sizing: border-box; }
+.admin-verification-card { width: min(100%, 440px); padding: 36px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 20px; background: var(--bg); box-shadow: var(--shadow); text-align: left; }
+.admin-verification-emblem { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; color: #fff; background: linear-gradient(135deg, #7552e8, #a13fff); font-size: 22px; font-weight: 750; }
+.admin-verification-eyebrow { margin: 22px 0 5px; color: #7552e8; font-size: 11px; font-weight: 750; letter-spacing: .14em; }
+.admin-verification-card h1 { margin: 0 0 9px; font-size: 30px; letter-spacing: -.8px; }
+.admin-verification-description { margin: 0 0 22px; font-size: 15px; }
+.admin-verification-form { display: grid; gap: 10px; }
+.admin-verification-form > label { color: var(--text-h); font-size: 14px; font-weight: 650; }
+.admin-password-wrap { position: relative; }
+.admin-password-wrap input { width: 100%; min-height: 48px; box-sizing: border-box; padding: 10px 66px 10px 12px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-h); background: var(--bg); font: inherit; font-size: 15px; }
+.admin-password-wrap button { position: absolute; top: 50%; right: 7px; transform: translateY(-50%); padding: 6px 8px; border: 0; background: transparent; color: #7552e8; font-weight: 650; cursor: pointer; }
+.admin-verification-submit { min-height: 48px; margin-top: 8px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(100deg, #6744df, #8a4deb); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+.admin-verification-submit:disabled { opacity: .58; cursor: wait; }
+.admin-verification-error { margin: 0 0 16px; padding: 10px 12px; border-radius: 8px; color: #9c2020; background: #fff0f0; font-size: 14px; }
+.admin-verification-footer { margin: 20px 0 0; text-align: center; font-size: 14px; }
+.admin-verification-footer a { color: #7552e8; font-weight: 650; }
+.admin-verification-success { padding: 20px 0 10px; text-align: center; animation: admin-success-enter .45s ease-out both; }
+.admin-verification-success h1 { margin: 22px 0 8px; }
+.admin-verification-success p { margin: 0; }
+.admin-success-mark { width: 74px; height: 74px; display: grid; place-items: center; margin: 0 auto; border: 3px solid #39a979; border-radius: 50%; color: #fff; background: #39a979; box-shadow: 0 0 0 9px #39a97922; animation: admin-success-pulse .7s ease-out both; }
+.admin-success-mark span { font-size: 38px; line-height: 1; font-weight: 700; animation: admin-check-draw .35s .2s ease-out both; }
+@keyframes admin-success-enter { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes admin-success-pulse { from { box-shadow: 0 0 0 0 #39a97955; } to { box-shadow: 0 0 0 9px #39a97922; } }
+@keyframes admin-check-draw { from { opacity: 0; transform: scale(.55) rotate(-20deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@media (prefers-reduced-motion: reduce) { .admin-verification-success, .admin-success-mark, .admin-success-mark span { animation: none; } }
+@media (max-width: 520px) { .admin-verification-card { padding: 26px 20px; border-radius: 16px; } .admin-verification-card h1 { font-size: 27px; } }

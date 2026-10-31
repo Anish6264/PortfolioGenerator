@@ -1,0 +1,25 @@
+.auth-page { width: min(100% - 32px, 460px); margin: 56px auto; padding: 32px; text-align: left; border: 1px solid var(--border); border-radius: 18px; background: var(--bg); box-shadow: var(--shadow); box-sizing: border-box; }
+.auth-page h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -1px; }
+.auth-intro { margin: 0 0 24px; }
+.auth-form { display: grid; gap: 18px; }
+.auth-field { display: grid; gap: 7px; }
+.auth-field label { color: var(--text-h); font-size: 15px; font-weight: 600; }
+.auth-field input { width: 100%; box-sizing: border-box; min-height: 46px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-h); background: var(--bg); font: inherit; font-size: 15px; }
+.password-input-wrap { position: relative; }
+.password-input-wrap input { padding-right: 64px; }
+.password-toggle { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 5px 8px; border: 0; background: transparent; color: var(--accent); cursor: pointer; font-weight: 600; }
+.auth-button { min-height: 46px; padding: 10px 16px; border: 0; border-radius: 9px; color: white; background: #7547e8; font: inherit; font-size: 15px; font-weight: 650; cursor: pointer; }
+.auth-button:disabled { opacity: .55; cursor: not-allowed; }
+.auth-error, .auth-success { margin: 14px 0; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+.auth-error { color: #9c2020; background: #fff0f0; }
+.auth-success { color: #17613a; background: #eaf8ef; }
+.auth-links { margin-top: 20px; font-size: 14px; }
+.auth-links a { color: var(--accent); font-weight: 600; }
+.password-requirements { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; padding: 0; margin: 4px 0 0; list-style: none; font-size: 13px; }
+.password-requirements li { color: #8b4350; }
+.password-requirements li.is-valid { color: #237044; }
+.password-requirements span { display: inline-block; width: 18px; }
+.password-match { margin: 0; color: #a12d2d; font-size: 13px; }
+.otp-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+.otp-row .auth-button { white-space: nowrap; }
+@media (max-width: 520px) { .auth-page { margin: 24px auto; padding: 23px 18px; } .password-requirements { grid-template-columns: 1fr; } .otp-row { grid-template-columns: 1fr; } }

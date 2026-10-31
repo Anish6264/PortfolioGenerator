@@ -2,7 +2,7 @@ const User = require("../models/User");
 
 const requireAdmin = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user?.id).select("role");
+        const user = await User.findById(req.user?.id).select("role email");
 
         if (!user) {
             return res.status(401).json({ message: "Not authorized" });
@@ -12,6 +12,7 @@ const requireAdmin = async (req, res, next) => {
             return res.status(403).json({ message: "Admin access required" });
         }
 
+        req.adminUser = user;
         return next();
     } catch (error) {
         if (error.name === "CastError") {

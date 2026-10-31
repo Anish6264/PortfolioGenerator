@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import "./Auth.css";
 
 function Login() {
 
@@ -16,6 +17,7 @@ function Login() {
 
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const notice = location.state?.message || "";
 
     const handleSubmit = async (event) => {
 
@@ -59,20 +61,23 @@ function Login() {
     };
 
     return (
-        <div>
+        <main className="auth-page">
 
             <h1>Login</h1>
 
+            {notice && <p className="auth-success" role="status">{notice}</p>}
+
             {error && (
-                <p>{error}</p>
+                <p className="auth-error" role="alert">{error}</p>
             )}
 
-            <form onSubmit={handleSubmit}>
+            <form className="auth-form" onSubmit={handleSubmit}>
 
-                <div>
-                    <label>Email</label>
+                <div className="auth-field">
+                    <label htmlFor="login-email">Email</label>
 
                     <input
+                        id="login-email"
                         type="email"
                         value={email}
                         onChange={(event) =>
@@ -82,10 +87,11 @@ function Login() {
                     />
                 </div>
 
-                <div>
-                    <label>Password</label>
+                <div className="auth-field">
+                    <label htmlFor="login-password">Password</label>
 
                     <input
+                        id="login-password"
                         type="password"
                         value={password}
                         onChange={(event) =>
@@ -104,7 +110,9 @@ function Login() {
 
             </form>
 
-            <p>
+            <p className="auth-links">
+                <Link to="/forgot-password">Forgot password?</Link>
+                <br />
                 Don't have an account?
                 {" "}
                 <Link to="/signup">
@@ -112,7 +120,7 @@ function Login() {
                 </Link>
             </p>
 
-        </div>
+        </main>
     );
 }
 

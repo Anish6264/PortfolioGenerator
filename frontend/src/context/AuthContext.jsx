@@ -9,6 +9,9 @@ import AuthContext from "./AuthContextValue";
 export const AuthProvider = ({ children }) => {
 
     const [user, setUser] = useState(null);
+    const [adminVerification, setAdminVerificationState] = useState(
+        () => sessionStorage.getItem("adminVerificationToken")
+    );
 
     const [token, setToken] = useState(
         localStorage.getItem("token")
@@ -65,12 +68,32 @@ export const AuthProvider = ({ children }) => {
             setToken(event.newValue);
             setUser(null);
             setIsAuthLoading(Boolean(event.newValue));
+            sessionStorage.removeItem("adminVerificationToken");
+            setAdminVerificationState(null);
         };
         window.addEventListener("storage", handleStorage);
         return () => window.removeEventListener("storage", handleStorage);
     }, []);
 
+    useEffect(() => {
+        const invalidateAdminVerification = () => setAdminVerificationState(null);
+        window.addEventListener("admin-verification-invalid", invalidateAdminVerification);
+        return () => window.removeEventListener("admin-verification-invalid", invalidateAdminVerification);
+    }, []);
+
+    const setAdminVerification = (verificationToken) => {
+        sessionStorage.setItem("adminVerificationToken", verificationToken);
+        setAdminVerificationState(verificationToken);
+    };
+
+    const clearAdminVerification = () => {
+        sessionStorage.removeItem("adminVerificationToken");
+        setAdminVerificationState(null);
+    };
+
     const login = (token, user) => {
+
+        clearAdminVerification();
 
         localStorage.setItem("token", token);
 
@@ -80,6 +103,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+
+        clearAdminVerification();
 
         localStorage.removeItem("token");
 
@@ -103,6 +128,9 @@ export const AuthProvider = ({ children }) => {
             value={{
                 user,
                 token,
+                adminVerification,
+                setAdminVerification,
+                clearAdminVerification,
                 login,
                 logout,
                 refreshUser,
