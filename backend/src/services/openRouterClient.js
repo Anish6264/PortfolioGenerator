@@ -8,6 +8,56 @@ const createProviderError = (status, code, message) => {
     return error;
 };
 
+const sanitizeDiagnosticText = (value, maxLength = 240) => {
+    if (typeof value !== "string") return "";
+    return value
+        .replace(/[\u0000-\u001f\u007f]/g, " ")
+        .replace(/\bBearer\s+[^\s,;]+/gi, "Bearer [redacted]")
+        .replace(/\b(?:sk|or|key)[-_][A-Za-z0-9_-]{8,}\b/gi, "[redacted]")
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted-email]")
+        .replace(/https?:\/\/\S+/gi, "[redacted-url]")
+        .replace(/\b(?:\+?\d[\d ().-]{7,}\d)\b/g, "[redacted-number]")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, maxLength);
+};
+
+const getProviderErrorDetails = (payload) => {
+    const providerError = payload?.error;
+    if (typeof providerError === "string") {
+        return { code: "", message: sanitizeDiagnosticText(providerError) };
+    }
+    if (!providerError || typeof providerError !== "object" || Array.isArray(providerError)) {
+        return { code: "", message: "Provider returned an error without details." };
+    }
+    const rawCode = providerError.code ?? providerError.type;
+    const code = typeof rawCode === "string" || typeof rawCode === "number"
+        ? sanitizeDiagnosticText(String(rawCode), 80).replace(/[^a-zA-Z0-9_.:-]/g, "")
+        : "";
+    const rawMessage = typeof providerError.message === "string" ? providerError.message : "";
+    return {
+        code,
+        message: sanitizeDiagnosticText(rawMessage) || "Provider returned an error without details."
+    };
+};
+
+const getRequestId = (response) => {
+    const value = response.headers?.get("x-request-id")
+        || response.headers?.get("x-openrouter-request-id")
+        || response.headers?.get("request-id");
+    return sanitizeDiagnosticText(value, 128).replace(/[^a-zA-Z0-9_.:-]/g, "");
+};
+
+const logProviderFailure = ({ response, payload, message }) => {
+    const details = getProviderErrorDetails(payload);
+    console.warn("OpenRouter request failed:", {
+        upstreamStatus: response.status,
+        providerCode: details.code || undefined,
+        providerMessage: message || details.message,
+        requestId: getRequestId(response) || undefined
+    });
+};
+
 const getOpenRouterConfig = () => {
     const apiKey = typeof process.env.OPENROUTER_API_KEY === "string"
         ? process.env.OPENROUTER_API_KEY.trim()
@@ -53,14 +103,24 @@ const requestOpenRouterCompletion = async (body) => {
     try {
         payload = await response.json();
     } catch {
-        throw createProviderError(502, "OPENROUTER_INVALID_RESPONSE", "OpenRouter returned an invalid response.");
+        if (!response.ok) {
+            logProviderFailure({ response, message: "Provider returned a non-JSON error response." });
+            const error = createProviderError(502, "OPENROUTER_PROVIDER_ERROR", "OpenRouter could not complete the request.");
+            error.upstreamStatus = response.status;
+            throw error;
+        }
+        const error = createProviderError(502, "OPENROUTER_INVALID_RESPONSE", "OpenRouter returned an invalid response.");
+        error.upstreamStatus = response.status;
+        throw error;
     }
 
     if (!response.ok || payload?.error) {
         const status = response.status === 429 ? 429 : 502;
         const code = response.status === 429 ? "OPENROUTER_RATE_LIMIT" : "OPENROUTER_PROVIDER_ERROR";
-        console.warn("OpenRouter request failed:", status, code);
-        throw createProviderError(status, code, "OpenRouter could not complete the request.");
+        logProviderFailure({ response, payload });
+        const error = createProviderError(status, code, "OpenRouter could not complete the request.");
+        error.upstreamStatus = response.status;
+        throw error;
     }
 
     return payload;

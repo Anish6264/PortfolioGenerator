@@ -314,7 +314,8 @@ function Builder() {
     const hasUploadedResume = Boolean(
         isEditMode && uploadedResumePath && portfolioLoaded && !loading && !uploadingFiles && !assetAction
     );
-    const canAnalyzeResume = Boolean(hasUploadedResume && !importBusy && !reviewProposal);
+    const canShowResumeAnalysis = Boolean(hasUploadedResume || (!isEditMode && resumeFile && !uploadingFiles));
+    const canAnalyzeResume = Boolean(canShowResumeAnalysis && !importBusy && !reviewProposal);
 
     useEffect(() => {
         if (!githubReviewStorageKey || (isEditMode && !portfolioLoaded) || restoredGitHubReviewKey.current === githubReviewStorageKey) return;
@@ -516,8 +517,8 @@ function Builder() {
 
     const handleResumeAnalysis = async () => {
         if (!canAnalyzeResume) {
-            setImportMessage(!id
-                ? "Create the portfolio before analyzing a resume."
+            setImportMessage(!isEditMode
+                ? "Select a PDF resume before analyzing it."
                 : "Upload a PDF resume before analyzing it.");
             return;
         }
@@ -525,10 +526,19 @@ function Builder() {
         setImportBusy("resume-analysis");
         setImportMessage("");
         try {
-            const response = await api.post("/import/resume/analyze", { portfolioId: id });
+            let response;
+            if (isEditMode) {
+                response = await api.post("/import/resume/analyze", { portfolioId: id });
+            } else {
+                const uploadData = new FormData();
+                uploadData.append("resume", resumeFile);
+                response = await api.post("/import/resume", uploadData, {
+                    headers: { "Content-Type": "multipart/form-data" }
+                });
+            }
             const proposedData = response.data?.proposedData;
             if (response.data?.status === "ready" && proposedData) {
-                showProposal("AI Resume Analysis", proposedData);
+                showProposal(response.data.source || "AI Resume Analysis", proposedData);
             } else {
                 setImportMessage(response.data?.message || "No resume analysis was returned.");
             }
@@ -1979,7 +1989,7 @@ function Builder() {
                 uploadingFiles={uploadingFiles}
                 assetAction={assetAction}
                 importBusy={importBusy}
-                hasUploadedResume={hasUploadedResume}
+                canShowResumeAnalysis={canShowResumeAnalysis}
                 canAnalyzeResume={canAnalyzeResume}
                 onResumeChange={handleResumeChange}
                 onResumeRemove={() => handleRemoveAsset("resume")}

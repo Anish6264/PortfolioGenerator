@@ -8,7 +8,7 @@ function BuilderImports({
     uploadingFiles,
     assetAction,
     importBusy,
-    hasUploadedResume,
+    canShowResumeAnalysis,
     canAnalyzeResume,
     onResumeChange,
     onResumeRemove,
@@ -35,7 +35,7 @@ function BuilderImports({
                         <input
                             type="file"
                             accept="application/pdf"
-                            disabled={uploadingFiles || Boolean(assetAction)}
+                            disabled={uploadingFiles || Boolean(assetAction) || importBusy === "resume-analysis"}
                             onChange={onResumeChange}
                         />
                     </label>
@@ -49,7 +49,7 @@ function BuilderImports({
                             {assetAction === "resume" ? "Removing Resume..." : "Remove"}
                         </button>
                     )}
-                    {hasUploadedResume && (
+                    {canShowResumeAnalysis && (
                         <div>
                             <p>Analyze your resume with AI. Nothing changes until you review and apply the proposal.</p>
                             <button type="button" onClick={onResumeAnalyze} disabled={!canAnalyzeResume}>

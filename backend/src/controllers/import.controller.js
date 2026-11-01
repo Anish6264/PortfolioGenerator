@@ -19,6 +19,9 @@ const RESUME_ANALYSIS_MESSAGES = {
     RESUME_NOT_FOUND: "Upload a PDF resume before analyzing it.",
     RESUME_FILE_NOT_FOUND: "The stored resume could not be found. Upload the PDF again.",
     INVALID_STORED_RESUME: "The stored resume is not a valid supported PDF. Upload it again.",
+    INVALID_RESUME_PDF: "The resume PDF is malformed or could not be read. Upload a valid PDF and try again.",
+    RESUME_NO_EXTRACTABLE_TEXT: "No readable text was found. Scanned or image-only PDFs need OCR and cannot be analyzed yet.",
+    RESUME_TEXT_TOO_LARGE: "This resume contains too much readable text to analyze.",
     RESUME_ANALYSIS_NOT_CONFIGURED: "AI resume analysis is not configured.",
     RESUME_ANALYSIS_PROVIDER_ERROR: "Unable to analyze the resume right now. Please try again.",
     RESUME_ANALYSIS_INVALID_OUTPUT: "Resume analysis returned an invalid result. Please try again.",
@@ -44,12 +47,22 @@ const GITHUB_ERROR_MESSAGES = {
 const importResume = async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ message: "Choose a PDF resume to import" });
-        const result = await parseResume(req.file);
-        return res.status(result.status === "not_configured" ? 503 : 200).json(result);
+        const proposedData = await parseResume(req.file);
+        return res.status(200).json({
+            status: "ready",
+            source: "AI Resume Analysis",
+            proposedData
+        });
     } catch (error) {
-        if (error.status === 400) return res.status(400).json({ message: error.message });
         console.error("Resume import boundary error:", error?.name || "RESUME_IMPORT_ERROR", error?.code || "UNKNOWN");
-        return res.status(500).json({ message: "Unable to process this resume" });
+        const status = Number.isInteger(error?.status) && error.status >= 400 && error.status < 600
+            ? error.status
+            : 500;
+        return res.status(status).json({
+            message: RESUME_ANALYSIS_MESSAGES[error?.code] || (status === 400
+                ? error.message
+                : "Unable to process this resume")
+        });
     } finally {
         if (req.file?.path) {
             await fs.unlink(req.file.path).catch((error) => {

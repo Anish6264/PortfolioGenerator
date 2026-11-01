@@ -1,8 +1,10 @@
 const path = require("path");
 const fs = require("fs/promises");
 const Portfolio = require("../models/Portfolio");
-const { analyzeResumePdf } = require("./resumeAnalysis.provider");
+const { analyzeResumeText, MAX_RESUME_TEXT_LENGTH } = require("./resumeAnalysis.provider");
 const { hasSupportedFileSignature } = require("./uploadAssets.service");
+
+const MIN_USEFUL_RESUME_TEXT_LENGTH = 20;
 
 const limits = {
     name: 100, title: 120, email: 254, phone: 100, location: 150,
@@ -54,8 +56,77 @@ const normalizeResumeData = (input) => {
     return normalized;
 };
 
-const extractResumeText = async () => ({ status: "not_configured", text: null });
+const normalizePdfPageText = (items) => items
+    .map((item) => `${typeof item.str === "string" ? item.str : ""}${item.hasEOL ? "\n" : " "}`)
+    .join("")
+    .replace(/[\t\f\v ]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+const extractResumeText = async (pdfBuffer) => {
+    let document;
+    let loadingTask;
+    try {
+        const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+        loadingTask = pdfjs.getDocument({ data: new Uint8Array(pdfBuffer) });
+        document = await loadingTask.promise;
+
+        const pages = [];
+        let totalLength = 0;
+        for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+            const page = await document.getPage(pageNumber);
+            const content = await page.getTextContent();
+            const pageText = normalizePdfPageText(content.items || []);
+            pages.push(pageText);
+            totalLength += pageText.length;
+            if (totalLength > MAX_RESUME_TEXT_LENGTH) {
+                const error = new Error("This resume contains too much readable text to analyze.");
+                error.status = 413;
+                error.code = "RESUME_TEXT_TOO_LARGE";
+                throw error;
+            }
+        }
+
+        const text = pages.filter(Boolean).join("\n\n").replace(/[\t\f\v ]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+        const usefulCharacters = (text.match(/[\p{L}\p{N}]/gu) || []).length;
+        if (usefulCharacters < MIN_USEFUL_RESUME_TEXT_LENGTH) {
+            const error = new Error("No readable text was found in this resume PDF. Scanned or image-only PDFs need OCR and cannot be analyzed yet.");
+            error.status = 422;
+            error.code = "RESUME_NO_EXTRACTABLE_TEXT";
+            throw error;
+        }
+        return text;
+    } catch (cause) {
+        if (cause?.code === "RESUME_TEXT_TOO_LARGE" || cause?.code === "RESUME_NO_EXTRACTABLE_TEXT") throw cause;
+        const error = new Error("The resume PDF is malformed or could not be read. Upload a valid PDF and try again.");
+        error.status = 400;
+        error.code = "INVALID_RESUME_PDF";
+        throw error;
+    } finally {
+        await (document || loadingTask)?.destroy().catch(() => {});
+    }
+};
 const structureResumeText = async () => ({ status: "not_configured", data: null });
+
+const analyzeResumeBuffer = async (pdfBuffer) => {
+    if (!Buffer.isBuffer(pdfBuffer) || pdfBuffer.length === 0 || pdfBuffer.length > MAX_RESUME_SIZE) {
+        const error = new Error("Upload a PDF resume of 5 MB or smaller.");
+        error.status = pdfBuffer?.length > MAX_RESUME_SIZE ? 413 : 400;
+        error.code = "INVALID_RESUME_UPLOAD";
+        throw error;
+    }
+    if (pdfBuffer.length < 5 || pdfBuffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
+        const error = new Error("Upload a valid PDF resume.");
+        error.status = 400;
+        error.code = "INVALID_RESUME_PDF";
+        throw error;
+    }
+
+    const resumeText = await extractResumeText(pdfBuffer);
+    const analysis = await analyzeResumeText(resumeText);
+    return normalizeResumeAnalysis(analysis);
+};
 
 const normalizeResumeAnalysis = (input) => {
     const invalid = () => {
@@ -209,28 +280,32 @@ const analyzePortfolioResume = async (portfolioId, userId) => {
         throw error;
     }
 
-    const analysis = await analyzeResumePdf(pdfBuffer, path.basename(realPath));
-    return normalizeResumeAnalysis(analysis);
+    return analyzeResumeBuffer(pdfBuffer);
 };
 
 const parseResume = async (file) => {
     if (!file || file.mimetype !== "application/pdf" || path.extname(file.originalname || "").toLowerCase() !== ".pdf" || (Number.isFinite(file.size) && file.size > 5 * 1024 * 1024)) {
         const error = new Error("Upload a PDF resume of 5 MB or smaller");
         error.status = 400;
+        error.code = "INVALID_RESUME_UPLOAD";
         throw error;
     }
     if (!await hasSupportedFileSignature(file.path, "resume")) {
         const error = new Error("Upload a valid PDF resume of 5 MB or smaller");
         error.status = 400;
+        error.code = "INVALID_RESUME_PDF";
         throw error;
     }
-    const extracted = await extractResumeText(file);
-    if (extracted.status !== "ready" || typeof extracted.text !== "string") {
-        return { status: "not_configured", proposedData: null, message: "Resume parsing is not configured yet. Your file was not imported." };
+    let pdfBuffer;
+    try {
+        pdfBuffer = await fs.readFile(file.path);
+    } catch {
+        const error = new Error("The uploaded resume could not be read. Please upload it again.");
+        error.status = 400;
+        error.code = "RESUME_FILE_NOT_FOUND";
+        throw error;
     }
-    const structured = await structureResumeText(extracted.text);
-    if (structured.status !== "ready") return { status: "not_configured", proposedData: null, message: "Resume parsing is not configured yet. Your file was not imported." };
-    return { status: "ready", proposedData: normalizeResumeData(structured.data) };
+    return analyzeResumeBuffer(pdfBuffer);
 };
 
 module.exports = {
@@ -239,5 +314,6 @@ module.exports = {
     structureResumeText,
     normalizeResumeData,
     normalizeResumeAnalysis,
-    analyzePortfolioResume
+    analyzePortfolioResume,
+    analyzeResumeBuffer
 };

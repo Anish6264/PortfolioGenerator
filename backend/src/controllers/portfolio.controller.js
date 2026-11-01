@@ -4,6 +4,7 @@ const {
     createPortfolioWithUniqueSlug,
     updatePortfolioWithUniqueSlug
 } = require("../utils/portfolioSlug");
+const uploadAssets = require("../services/uploadAssets.service");
 
 const editablePortfolioFields = [
     "template",
@@ -704,6 +705,24 @@ const deletePortfolio = async (req, res) => {
             return res.status(404).json({
                 message: "Portfolio not found"
             });
+        }
+
+        const deletedAssets = [
+            { kind: "resume", reference: portfolio.resume },
+            { kind: "profileImage", reference: portfolio.personal?.profileImage }
+        ];
+        for (const { kind, reference } of deletedAssets) {
+            if (typeof reference !== "string" || !reference.trim()) continue;
+            if (kind === "profileImage" && /^https?:\/\//i.test(reference)) continue;
+
+            try {
+                const stillReferenced = kind === "resume"
+                    ? await Portfolio.exists({ _id: { $ne: portfolio._id }, resume: reference })
+                    : await Portfolio.exists({ _id: { $ne: portfolio._id }, "personal.profileImage": reference });
+                if (!stillReferenced) await uploadAssets.removeManagedUpload(reference, kind);
+            } catch (error) {
+                console.error("Deleted portfolio asset cleanup failed:", error?.code || "UPLOAD_CLEANUP_FAILED");
+            }
         }
 
         return res.status(200).json({
