@@ -26,17 +26,28 @@ export default function ResetPassword() {
             setError(requestError.response?.data?.message || "Unable to reset your password.");
         } finally { setLoading(false); }
     };
-    return <main className="auth-page">
-        <h1>Reset password</h1>
-        <p className="auth-intro">Choose a new password for your account.</p>
-        {error && <p className="auth-error" role="alert">{error}</p>}
-        <form className="auth-form" onSubmit={submit}>
-            <PasswordInput id="reset-password" label="New password" value={password} onChange={(event) => setPassword(event.target.value)} />
-            <PasswordRequirements password={password} />
-            <PasswordInput id="reset-confirm-password" label="Confirm new password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
-            {confirmPassword && !matches && <p className="password-match" role="alert">Passwords do not match.</p>}
-            <button className="auth-button" type="submit" disabled={loading || !isValidPassword(password) || !matches}>{loading ? "Updating password…" : "Reset password"}</button>
-        </form>
-        <p className="auth-links"><Link to="/login">Back to login</Link></p>
+    return <main className="auth-page auth-page-centered">
+        <section className="auth-card" aria-labelledby="reset-title">
+            <Link className="auth-brand" to="/" aria-label="Portfolio Generator home"><span className="auth-brand-mark" aria-hidden="true">P</span><span>Portfolio <span>Generator</span></span></Link>
+            <div className="auth-heading">
+                <p className="auth-eyebrow">Choose a new password</p>
+                <h1 id="reset-title">Secure your account</h1>
+                <p>Use a strong password that meets each requirement below.</p>
+            </div>
+            {error && <p className="auth-notice auth-error" role="alert">{error}</p>}
+            <form className="auth-form" onSubmit={submit} aria-busy={loading}>
+                <PasswordInput id="reset-password" label="New password" value={password} onChange={(event) => setPassword(event.target.value)} />
+                <PasswordRequirements password={password} />
+                <PasswordInput id="reset-confirm-password" label="Confirm new password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} />
+                {confirmPassword && !matches && <p className="password-match" role="alert">Passwords do not match.</p>}
+                {confirmPassword && matches && <p className="password-confirmed" role="status">Passwords match.</p>}
+                <button className="auth-submit" type="submit" disabled={loading || !isValidPassword(password) || !matches}>
+                    {loading && <span className="auth-spinner" aria-hidden="true" />}
+                    {loading ? "Updating password…" : "Reset password"}
+                    {!loading && <span aria-hidden="true">→</span>}
+                </button>
+            </form>
+            <p className="auth-bottom-link"><Link to="/login">← Back to sign in</Link></p>
+        </section>
     </main>;
 }

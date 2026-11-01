@@ -28,18 +28,20 @@ function AIEnhanceField({ field, text, onApply }) {
 
     return (
         <div className="ai-enhance-field">
-            <button type="button" onClick={requestEnhancement} disabled={loading}>
-                {loading ? "Enhancing..." : "✨ Enhance with AI"}
+            <button type="button" onClick={requestEnhancement} disabled={loading} aria-busy={loading}>
+                {loading && <span className="builder-spinner" aria-hidden="true" />}
+                {loading ? "Enhancing…" : "✨ Enhance with AI"}
             </button>
-            {error && <p role="alert">{error}</p>}
+            {error && <p className="builder-notice builder-notice-error" role="alert">{error}</p>}
             {review && (
                 <section aria-label="Review enhanced text">
+                    <p className="builder-eyebrow">AI suggestion · not applied</p>
                     <h4>Review enhanced text</h4>
                     <p><strong>Original</strong></p>
                     <p className="ai-enhance-preview">{review.original}</p>
                     <p><strong>Enhanced</strong></p>
                     <p className="ai-enhance-preview">{review.enhanced}</p>
-                    <button
+                    <button className="builder-button builder-button-primary"
                         type="button"
                         onClick={() => {
                             onApply(review.enhanced);
@@ -48,7 +50,7 @@ function AIEnhanceField({ field, text, onApply }) {
                     >
                         Use Enhanced Version
                     </button>{" "}
-                    <button type="button" onClick={() => setReview(null)}>Cancel</button>
+                    <button className="builder-button builder-button-secondary" type="button" onClick={() => setReview(null)}>Keep original</button>
                 </section>
             )}
         </div>

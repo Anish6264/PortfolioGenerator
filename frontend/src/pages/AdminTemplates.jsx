@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import api from "../services/api";
 import TemplatePricing from "../components/TemplatePricing";
+import "./AdminTemplates.css";
 
 function AdminTemplates() {
     const [templates, setTemplates] = useState([]);
@@ -48,10 +49,10 @@ function AdminTemplates() {
         }
     };
 
-    if (loading) return <main><p>Loading templates…</p></main>;
+    if (loading) return <main className="admin-template-page"><p role="status">Loading templates…</p></main>;
 
     return (
-        <main>
+        <main className="admin-template-page">
             <p><Link to="/dashboard">Back to Dashboard</Link></p>
             <nav aria-label="Admin navigation">
                 <Link to="/admin">Dashboard</Link>{" "}
@@ -66,7 +67,7 @@ function AdminTemplates() {
             {error && <p role="alert">{error}</p>}
             {message && <p role="status">{message}</p>}
 
-            <table>
+            <div className="admin-template-table-wrap"><table>
                 <thead>
                     <tr>
                         <th scope="col">Template</th>
@@ -100,7 +101,7 @@ function AdminTemplates() {
                         </tr>
                     ))}
                 </tbody>
-            </table>
+            </table></div>
         </main>
     );
 }

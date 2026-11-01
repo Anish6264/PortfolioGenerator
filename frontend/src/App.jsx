@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import "./App.css";
 
 import Home from "./pages/Home";
 import Professions from "./pages/Professions";
@@ -31,12 +32,16 @@ import AdminCreditTransactions from "./pages/AdminCreditTransactions";
 import AdminCreditTransactionDetails from "./pages/AdminCreditTransactionDetails";
 import AdminPortfolios from "./pages/AdminPortfolios";
 import AdminPortfolioDetails from "./pages/AdminPortfolioDetails";
+import ThemeToggle from "./components/ThemeToggle";
+import AdminLayout from "./components/AdminLayout";
 
 
 function App() {
 
     return (
         <BrowserRouter>
+
+            <ThemeToggle />
 
             <Routes>
 
@@ -128,48 +133,48 @@ function App() {
 
                 <Route
                     path="/admin"
-                    element={<AdminRoute><AdminDashboard /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminDashboard /></AdminLayout></AdminRoute>}
                 />
                 <Route path="/admin/verify" element={<AdminVerification />} />
                 <Route
                     path="/admin/users"
-                    element={<AdminRoute><AdminUsers /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminUsers /></AdminLayout></AdminRoute>}
                 />
                 <Route
                     path="/admin/users/:id"
-                    element={<AdminRoute><AdminUserDetails /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminUserDetails /></AdminLayout></AdminRoute>}
                 />
                 <Route
                     path="/admin/payments"
-                    element={<AdminRoute><AdminPayments /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminPayments /></AdminLayout></AdminRoute>}
                 />
                 <Route
                     path="/admin/payments/:id"
-                    element={<AdminRoute><AdminPaymentDetails /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminPaymentDetails /></AdminLayout></AdminRoute>}
                 />
                 <Route
                     path="/admin/credit-transactions"
-                    element={<AdminRoute><AdminCreditTransactions /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminCreditTransactions /></AdminLayout></AdminRoute>}
                 />
                 <Route
                     path="/admin/credit-transactions/:id"
-                    element={<AdminRoute><AdminCreditTransactionDetails /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminCreditTransactionDetails /></AdminLayout></AdminRoute>}
                 />
                 <Route
                     path="/admin/portfolios"
-                    element={<AdminRoute><AdminPortfolios /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminPortfolios /></AdminLayout></AdminRoute>}
                 />
                 <Route
                     path="/admin/portfolios/:id"
-                    element={<AdminRoute><AdminPortfolioDetails /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminPortfolioDetails /></AdminLayout></AdminRoute>}
                 />
                 <Route
                     path="/admin/templates"
-                    element={<AdminRoute><AdminTemplates /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminTemplates /></AdminLayout></AdminRoute>}
                 />
                 <Route
                     path="/admin/templates/:id/edit"
-                    element={<AdminRoute><AdminTemplateEdit /></AdminRoute>}
+                    element={<AdminRoute><AdminLayout><AdminTemplateEdit /></AdminLayout></AdminRoute>}
                 />
 
             </Routes>

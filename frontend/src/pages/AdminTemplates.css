@@ -1,0 +1,7 @@
+.admin-template-page > p:first-child { margin: 0 0 1rem; }
+.admin-template-page h1 { margin-bottom: .35rem; }
+.admin-template-page > p:nth-of-type(2) { margin-top: 0; color: var(--color-text-muted); }
+.admin-template-table-wrap { overflow-x: auto; margin-top: 1.5rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); box-shadow: var(--shadow-sm); }
+.admin-template-table-wrap table { min-width: 680px; }
+.admin-template-table-wrap td:last-child { white-space: nowrap; }
+.admin-template-table-wrap td button { margin-left: .4rem; }

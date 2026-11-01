@@ -25,6 +25,7 @@ function CreditsBilling() {
     const [data, setData] = useState({ transactions: [], pagination: { page: 1, pages: 0, total: 0 } });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [retryCount, setRetryCount] = useState(0);
 
     useEffect(() => {
         let active = true;
@@ -42,19 +43,20 @@ function CreditsBilling() {
         };
         loadTransactions();
         return () => { active = false; };
-    }, [filter, page]);
+    }, [filter, page, retryCount]);
 
     return (
         <main className="credits-billing-page">
             <header className="credits-billing-header">
                 <div>
                     <p><Link to="/dashboard">← Back to Dashboard</Link></p>
+                    <p className="credits-billing-eyebrow">Account activity</p>
                     <h1>Credits &amp; Billing</h1>
-                    <p>Current balance: <strong>{user?.credits ?? 0} credits</strong></p>
+                    <p>Track how credits are used and added.</p>
                 </div>
-                <Link className="credits-billing-buy" to="/buy-credits" state={{ from: "/credits" }}>Buy Credits</Link>
+                <div className="credits-billing-header-actions"><div className="credits-billing-balance"><span>Available balance</span><strong>{user?.credits ?? 0}<small> credits</small></strong></div><Link className="credits-billing-buy" to="/buy-credits" state={{ from: "/credits" }}>Buy credits <span aria-hidden="true">→</span></Link></div>
             </header>
-            <section aria-label="Credit transaction history">
+            <section className="credits-billing-history" aria-label="Credit transaction history">
                 <label className="credits-billing-filter">
                     Activity
                     <select value={filter} onChange={(event) => {
@@ -66,10 +68,10 @@ function CreditsBilling() {
                         {FILTERS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                     </select>
                 </label>
-                {loading && <p role="status">Loading credit activity…</p>}
-                {error && <p className="credits-billing-error" role="alert">{error}</p>}
+                {loading && <div className="credits-billing-loading" role="status" aria-busy="true"><span className="credits-billing-spinner" aria-hidden="true" />Loading credit activity…</div>}
+                {error && <div className="credits-billing-error-state" role="alert"><p>{error}</p><button type="button" onClick={() => { setLoading(true); setError(""); setRetryCount((count) => count + 1); }}>Try again</button></div>}
                 {!loading && !error && data.transactions.length === 0 && (
-                    <div>
+                    <div className="credits-billing-empty">
                         <p>{filter ? "No credit activity found for this filter." : "No credit transactions yet."}</p>
                         <Link to="/buy-credits" state={{ from: "/credits" }}>Buy Credits</Link>
                     </div>
@@ -82,18 +84,18 @@ function CreditsBilling() {
                                 <tbody>
                                     {data.transactions.map((transaction) => (
                                         <tr key={transaction.id}>
-                                            <td>{formatDate(transaction.createdAt)}</td>
-                                            <td>{transaction.type === "PURCHASE" ? "Credit purchase" : transaction.type === "GITHUB_IMPORT" ? "GitHub import" : transaction.type === "DOWNLOAD" ? "Portfolio download" : "Refund"}</td>
-                                            <td>
+                                            <td data-label="Date">{formatDate(transaction.createdAt)}</td>
+                                            <td data-label="Type">{transaction.type === "PURCHASE" ? "Credit purchase" : transaction.type === "GITHUB_IMPORT" ? "GitHub import" : transaction.type === "DOWNLOAD" ? "Portfolio download" : "Refund"}</td>
+                                            <td data-label="Description">
                                                 <strong>{transaction.reason}</strong>
                                                 {transaction.portfolio?.name && <span className="credits-billing-detail">{transaction.portfolio.name}</span>}
                                                 {transaction.template?.name && <span className="credits-billing-detail">{transaction.template.name} template</span>}
                                             </td>
-                                            <td className={transaction.direction === "CREDIT" ? "credits-positive" : "credits-negative"}>
+                                            <td data-label="Credits" className={transaction.direction === "CREDIT" ? "credits-positive" : "credits-negative"}>
                                                 {transaction.direction === "CREDIT" ? "+" : "−"}{transaction.amount}
                                             </td>
-                                            <td>{transaction.balanceAfter}</td>
-                                            <td>{transaction.status.toLowerCase()}</td>
+                                            <td data-label="Balance after">{transaction.balanceAfter}</td>
+                                            <td data-label="Status"><span className={`credits-status credits-status-${String(transaction.status).toLowerCase()}`}>{String(transaction.status).toLowerCase()}</span></td>
                                         </tr>
                                     ))}
                                 </tbody>

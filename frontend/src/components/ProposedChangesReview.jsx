@@ -81,16 +81,18 @@ function ProposedChangesReview({ proposal, currentData, onAccept, onReject, onCa
     const selectAllRepositories = (selected) => setSelectedRepositories(repositories.map(() => selected));
 
     return (
-        <section aria-label="Review proposed changes">
-            <h2>Review {proposal.source || "proposed"} changes</h2>
-            <p>Nothing will change in your portfolio until you accept this proposal.</p>
-            {(validationError || invalidReplacement) && <p role="alert">Imported content is invalid and cannot be applied.</p>}
+        <section className="builder-proposal-review" aria-label="Review proposed changes">
+            <header className="builder-proposal-header">
+                <div><p className="builder-eyebrow">Review before applying</p><h2>{proposal.source || "Proposed"} changes</h2><p>Choose exactly what to keep. Your portfolio stays unchanged until you apply your selection.</p></div>
+                <span className="builder-proposal-count" aria-label={`${Object.keys(data).length} proposed sections`}>{Object.keys(data).length} sections</span>
+            </header>
+            {(validationError || invalidReplacement) && <p className="builder-notice builder-notice-error" role="alert">Imported content is invalid and cannot be applied.</p>}
 
             {scalarGroups.map(([group, title]) => Object.entries(data[group] || {}).map(([field, proposed]) => {
                 const key = `${group}.${field}`;
                 return (
-                    <div key={key}>
-                        <label>
+                    <div className="builder-proposal-field" key={key}>
+                        <label className="builder-proposal-choice">
                             <input type="checkbox" checked={selectedFields[key] !== false} onChange={(event) => setFieldSelected(key, event.target.checked)} />
                             Apply {title.toLowerCase()} · {field}
                         </label>
@@ -101,8 +103,8 @@ function ProposedChangesReview({ proposal, currentData, onAccept, onReject, onCa
             }))}
 
             {["shortIntro", "about"].filter((field) => data[field] !== undefined).map((field) => (
-                <div key={field}>
-                    <label>
+                    <div className="builder-proposal-field" key={field}>
+                    <label className="builder-proposal-choice">
                         <input type="checkbox" checked={selectedFields[field] !== false} onChange={(event) => setFieldSelected(field, event.target.checked)} />
                         Apply {field === "about" ? "summary" : "short introduction"}
                     </label>
@@ -112,11 +114,11 @@ function ProposedChangesReview({ proposal, currentData, onAccept, onReject, onCa
             ))}
 
             {arrayFields.filter((field) => Array.isArray(data[field]) && !(isGitHubImport && field === "projects")).map((field) => (
-                <fieldset key={field}>
+                <fieldset className="builder-proposal-group" key={field}>
                     <legend>Proposed {field} (current: {(currentData[field] || []).length})</legend>
                     {data[field].length === 0 && <p>No {field} entries were proposed.</p>}
                     {data[field].map((entry, index) => (
-                        <label key={`${field}-${index}`}>
+                        <label className="builder-proposal-array-choice" key={`${field}-${index}`}>
                             <input
                                 type="checkbox"
                                 checked={selectedArrays[field]?.[index] !== false}
@@ -131,8 +133,8 @@ function ProposedChangesReview({ proposal, currentData, onAccept, onReject, onCa
             {Object.entries(replacements).map(([path, proposed]) => {
                 const [group, index, key] = path.split(".");
                 return (
-                    <div key={path}>
-                        <label>
+                    <div className="builder-proposal-field" key={path}>
+                        <label className="builder-proposal-choice">
                             <input type="checkbox" checked={selectedReplacements[path] !== false} onChange={(event) => setSelectedReplacements((current) => ({ ...current, [path]: event.target.checked }))} />
                             Apply {group} #{Number(index) + 1} {key}
                         </label>
@@ -143,7 +145,7 @@ function ProposedChangesReview({ proposal, currentData, onAccept, onReject, onCa
             })}
 
             {repositories.length > 0 && (
-                <fieldset>
+                <fieldset className="builder-proposal-group">
                     <legend>{isGitHubImport ? "Review GitHub project matches" : "GitHub repositories to add as projects"}</legend>
                     {!isGitHubImport && <>
                         <button type="button" onClick={() => selectAllRepositories(true)}>Select All</button>{" "}
@@ -154,7 +156,7 @@ function ProposedChangesReview({ proposal, currentData, onAccept, onReject, onCa
                         const decision = repositoryDecisions[index];
                         const matchedProject = match?.type === "likely-match" ? currentData.projects?.[match.projectIndex] : null;
                         return (
-                            <div key={`${repo.githubUrl}-${index}`}>
+                            <div className="builder-repository-review" key={`${repo.githubUrl}-${index}`}>
                                 {isGitHubImport ? (
                                     <>
                                         {matchedProject ? (
@@ -208,11 +210,14 @@ function ProposedChangesReview({ proposal, currentData, onAccept, onReject, onCa
                 </fieldset>
             )}
 
-            <button type="button" onClick={accept} disabled={actionBusy || Boolean(validationError || invalidReplacement || (isGitHubImport && repositoryDecisions.some((decision) => !decision)))}>
+            <div className="builder-proposal-actions">
+            <button className="builder-button builder-button-primary" type="button" onClick={accept} disabled={actionBusy || Boolean(validationError || invalidReplacement || (isGitHubImport && repositoryDecisions.some((decision) => !decision)))} aria-busy={actionBusy}>
+                {actionBusy && <span className="builder-spinner" aria-hidden="true" />}
                 {actionBusy ? "Applying..." : isGitHubImport ? "Apply decisions and accept selected changes" : "Accept selected changes"}
             </button>{" "}
-            <button type="button" onClick={onReject} disabled={actionBusy}>Reject</button>{" "}
-            <button type="button" onClick={onCancel} disabled={actionBusy}>Cancel</button>
+            <button className="builder-button builder-button-danger" type="button" onClick={onReject} disabled={actionBusy}>Reject proposal</button>{" "}
+            <button className="builder-button builder-button-secondary" type="button" onClick={onCancel} disabled={actionBusy}>Cancel</button>
+            </div>
         </section>
     );
 }

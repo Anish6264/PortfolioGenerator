@@ -1,34 +1,36 @@
-.credits-billing-page { width: min(1100px, calc(100% - 2rem)); margin: 2rem auto; }
-.credits-billing-header,
-.credits-billing-pagination,
-.credits-billing-pagination > div {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-.credits-billing-buy {
-    display: inline-block;
-    padding: 0.7rem 1rem;
-    border-radius: 0.5rem;
-    background: #2563eb;
-    color: white;
-    text-decoration: none;
-}
-.credits-billing-filter { display: flex; align-items: center; gap: 0.6rem; margin: 1.5rem 0 1rem; }
-.credits-billing-table-wrap { overflow-x: auto; }
-.credits-billing-table { width: 100%; border-collapse: collapse; }
-.credits-billing-table th,
-.credits-billing-table td { padding: 0.8rem; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: top; }
-.credits-billing-table th { color: #4b5563; font-size: 0.9rem; }
-.credits-billing-detail { display: block; margin-top: 0.25rem; color: #6b7280; font-size: 0.85rem; }
-.credits-positive { color: #15803d; }
-.credits-negative,
-.credits-billing-error { color: #b91c1c; }
-.credits-billing-pagination { margin-top: 1rem; flex-wrap: wrap; }
-.credits-billing-pagination > div { justify-content: flex-end; }
-@media (max-width: 600px) {
-    .credits-billing-header { align-items: flex-start; }
-    .credits-billing-table th,
-    .credits-billing-table td { padding: 0.65rem 0.45rem; }
-}
+.credits-billing-page { width: min(100% - 2rem, 1100px); margin: clamp(1.5rem, 4vw, 3rem) auto; color: var(--color-text); animation: credits-enter 300ms var(--ease-standard) both; }
+.credits-billing-header { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: clamp(1.3rem, 4vw, 2.4rem); border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: radial-gradient(ellipse at 95% 5%, color-mix(in srgb, var(--color-primary) 14%, transparent), transparent 42%), var(--color-surface-raised); box-shadow: var(--shadow-md); }
+.credits-billing-header > div:first-child > p:first-child { margin: 0 0 1rem; }.credits-billing-header > div:first-child > p:first-child a { color: var(--color-text-muted); text-decoration: none; }
+.credits-billing-eyebrow { margin: 0 0 0.3rem; color: var(--color-primary); font-size: 0.76rem; font-weight: 760; letter-spacing: 0.1em; text-transform: uppercase; }
+.credits-billing-header h1 { margin: 0; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.05em; }
+.credits-billing-header > div:first-child > p:last-child { margin: 0.5rem 0 0; color: var(--color-text-muted); }
+.credits-billing-header-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 0.8rem; }
+.credits-billing-balance { display: grid; gap: 0.15rem; padding: 0.7rem 0.9rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }
+.credits-billing-balance span { color: var(--color-text-muted); font-size: 0.78rem; }
+.credits-billing-balance strong { font-size: 1.45rem; letter-spacing: -0.04em; }.credits-billing-balance small { color: var(--color-text-muted); font-size: 0.8rem; font-weight: 550; }
+.credits-billing-buy { min-height: 2.8rem; display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.7rem 1rem; border: 1px solid var(--color-primary); border-radius: var(--radius-sm); color: var(--color-primary-contrast); background: var(--color-primary); font-weight: 720; text-decoration: none; }
+.credits-billing-buy:hover { color: var(--color-primary-contrast); background: var(--color-primary-hover); }
+.credits-billing-history { padding: clamp(1rem, 3vw, 1.6rem); margin-top: 1rem; border: 1px solid var(--color-border); border-radius: var(--radius-xl); background: var(--color-surface-raised); box-shadow: var(--shadow-sm); }
+.credits-billing-filter { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin: 0 0 1rem; color: var(--color-text); font-weight: 700; }
+.credits-billing-filter select { min-height: 2.7rem; padding: 0.55rem 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text); background: var(--color-surface); font: inherit; }
+.credits-billing-filter select:focus-visible { border-color: var(--color-primary); outline: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 18%, transparent); }
+.credits-billing-table-wrap { overflow-x: auto; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.credits-billing-table { width: 100%; border-collapse: collapse; color: var(--color-text); background: var(--color-surface); }
+.credits-billing-table th,.credits-billing-table td { padding: 0.85rem 0.75rem; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: top; }
+.credits-billing-table th { color: var(--color-text-muted); background: var(--color-surface-muted); font-size: 0.78rem; font-weight: 740; letter-spacing: 0.03em; }
+.credits-billing-table tbody tr:last-child td { border-bottom: 0; }.credits-billing-table tbody tr:hover { background: color-mix(in srgb, var(--color-primary) 4%, var(--color-surface)); }
+.credits-billing-detail { display: block; margin-top: 0.25rem; color: var(--color-text-muted); font-size: 0.82rem; }
+.credits-positive { color: var(--color-success); font-weight: 750; }.credits-negative { color: var(--color-error); font-weight: 750; }
+.credits-status { display: inline-block; padding: 0.25rem 0.5rem; border-radius: var(--radius-pill); color: var(--color-text-muted); background: var(--color-surface-muted); font-size: 0.75rem; font-weight: 700; text-transform: capitalize; }
+.credits-status-completed,.credits-status-success { color: var(--color-success); background: var(--color-success-surface); }.credits-status-pending,.credits-status-processing { color: var(--color-warning); background: var(--color-warning-surface); }.credits-status-failed,.credits-status-reversed { color: var(--color-error); background: var(--color-error-surface); }
+.credits-billing-loading { min-height: 12rem; display: flex; align-items: center; justify-content: center; gap: 0.65rem; color: var(--color-text-muted); }
+.credits-billing-spinner { width: 1.1rem; height: 1.1rem; border: 2px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; animation: credits-spin 700ms linear infinite; }
+.credits-billing-error-state,.credits-billing-empty { padding: 2rem 1rem; color: var(--color-text-muted); text-align: center; }
+.credits-billing-error-state { color: var(--color-error); background: var(--color-error-surface); border-radius: var(--radius-md); }.credits-billing-error-state button { min-height: 2.5rem; padding: 0.55rem 0.8rem; border: 1px solid var(--color-error); border-radius: var(--radius-sm); color: var(--color-error); background: var(--color-surface); font: inherit; font-weight: 700; cursor: pointer; }
+.credits-billing-empty a { color: var(--color-primary); font-weight: 700; }
+.credits-billing-pagination { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1rem; color: var(--color-text-muted); font-size: 0.87rem; }
+.credits-billing-pagination > div { display: flex; align-items: center; gap: 0.65rem; }.credits-billing-pagination button { min-height: 2.45rem; padding: 0.45rem 0.7rem; border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text); background: var(--color-surface); font: inherit; cursor: pointer; }.credits-billing-pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+@keyframes credits-enter { from { opacity: 0; transform: translateY(0.35rem); } to { opacity: 1; transform: translateY(0); } }@keyframes credits-spin { to { transform: rotate(360deg); } }
+@media (max-width: 760px) { .credits-billing-header { align-items: flex-start; flex-direction: column; }.credits-billing-header-actions { width: 100%; justify-content: space-between; } }
+@media (max-width: 620px) { .credits-billing-page { width: calc(100% - 1rem); margin-top: 0.75rem; }.credits-billing-header,.credits-billing-history { padding: 1rem; }.credits-billing-table-wrap { overflow: visible; border: 0; }.credits-billing-table,.credits-billing-table tbody { display: block; }.credits-billing-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }.credits-billing-table tbody tr { display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.8rem; padding: 0.65rem; margin-bottom: 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); }.credits-billing-table td { min-width: 0; display: grid; gap: 0.15rem; padding: 0.5rem 0.2rem; border: 0; overflow-wrap: anywhere; }.credits-billing-table td::before { content: attr(data-label); color: var(--color-text-muted); font-size: 0.7rem; font-weight: 700; }.credits-billing-table td:nth-child(3) { grid-column: 1 / -1; }.credits-billing-pagination { align-items: flex-start; flex-direction: column; }.credits-billing-pagination > div { width: 100%; justify-content: space-between; } }
+@media (prefers-reduced-motion: reduce) { .credits-billing-page,.credits-billing-spinner { animation: none; } }

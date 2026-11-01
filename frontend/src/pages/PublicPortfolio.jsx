@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../services/api";
+import "./PublicPortfolio.css";
 
 function PublicPortfolio() {
     const { slug } = useParams();
@@ -62,8 +63,8 @@ function PublicPortfolio() {
         };
     }, [portfolio, slug]);
 
-    if (loading) return <main><p>Loading portfolio...</p></main>;
-    if (error || !portfolio) return <main><h1>Portfolio unavailable</h1><p>{error || "This portfolio is unavailable."}</p></main>;
+    if (loading) return <main className="public-portfolio-state"><span className="public-portfolio-loader" aria-hidden="true" /><p role="status" aria-busy="true">Loading portfolio…</p></main>;
+    if (error || !portfolio) return <main className="public-portfolio-state public-portfolio-unavailable"><span aria-hidden="true">!</span><p className="public-portfolio-eyebrow">Portfolio Generator</p><h1>Portfolio unavailable</h1><p role="alert">{error || "This portfolio is unavailable."}</p></main>;
 
     const publicBase = `${api.defaults.baseURL}/public/portfolios/${encodeURIComponent(slug)}`;
     const html = portfolio.html
@@ -75,8 +76,9 @@ function PublicPortfolio() {
         );
 
     return (
-        <main>
+        <main className="public-portfolio-shell">
             <iframe
+                className="public-portfolio-frame"
                 title={portfolio.title || "Portfolio"}
                 srcDoc={html}
                 sandbox="allow-scripts allow-popups"

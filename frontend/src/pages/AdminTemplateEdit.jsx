@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import api from "../services/api";
+import "./AdminTemplateEdit.css";
 
 const emptyTemplate = {
     name: "",
@@ -106,13 +107,13 @@ function AdminTemplateEdit() {
         }
     };
 
-    if (loading) return <main><p>Loading template…</p></main>;
+    if (loading) return <main className="admin-template-edit"><p role="status">Loading template…</p></main>;
     if (error && !template.name) {
-        return <main><p role="alert">{error}</p><Link to="/admin/templates">Back to templates</Link></main>;
+        return <main className="admin-template-edit"><p role="alert">{error}</p><Link to="/admin/templates">Back to templates</Link></main>;
     }
 
     return (
-        <main>
+        <main className="admin-template-edit">
             <p><Link to="/admin/templates">Back to templates</Link></p>
             <nav aria-label="Admin navigation">
                 <Link to="/admin">Dashboard</Link>{" "}

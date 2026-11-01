@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import PasswordInput from "../components/PasswordInput";
 import "./Auth.css";
 
 function Login() {
@@ -61,65 +62,53 @@ function Login() {
     };
 
     return (
-        <main className="auth-page">
-
-            <h1>Login</h1>
-
-            {notice && <p className="auth-success" role="status">{notice}</p>}
-
-            {error && (
-                <p className="auth-error" role="alert">{error}</p>
-            )}
-
-            <form className="auth-form" onSubmit={handleSubmit}>
-
-                <div className="auth-field">
-                    <label htmlFor="login-email">Email</label>
-
-                    <input
-                        id="login-email"
-                        type="email"
-                        value={email}
-                        onChange={(event) =>
-                            setEmail(event.target.value)
-                        }
-                        required
-                    />
-                </div>
-
-                <div className="auth-field">
-                    <label htmlFor="login-password">Password</label>
-
-                    <input
-                        id="login-password"
-                        type="password"
-                        value={password}
-                        onChange={(event) =>
-                            setPassword(event.target.value)
-                        }
-                        required
-                    />
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={loading}
-                >
-                    {loading ? "Logging in..." : "Login"}
-                </button>
-
-            </form>
-
-            <p className="auth-links">
-                <Link to="/forgot-password">Forgot password?</Link>
-                <br />
-                Don't have an account?
-                {" "}
-                <Link to="/signup">
-                    Create one
+        <main className="auth-page auth-page-centered">
+            <section className="auth-card" aria-labelledby="login-title">
+                <Link className="auth-brand" to="/" aria-label="Portfolio Generator home">
+                    <span className="auth-brand-mark" aria-hidden="true">P</span>
+                    <span>Portfolio <span>Generator</span></span>
                 </Link>
-            </p>
+                <div className="auth-heading">
+                    <p className="auth-eyebrow">Welcome back</p>
+                    <h1 id="login-title">Sign in to your account</h1>
+                    <p>Pick up where you left off and keep building your portfolio.</p>
+                </div>
 
+                {notice && <p className="auth-notice auth-success" role="status">{notice}</p>}
+                {error && <p className="auth-notice auth-error" role="alert">{error}</p>}
+
+                <form className="auth-form" onSubmit={handleSubmit} aria-busy={loading}>
+                    <div className="auth-field">
+                        <label htmlFor="login-email">Email address</label>
+                        <input
+                            id="login-email"
+                            type="email"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            autoComplete="email"
+                            required
+                        />
+                    </div>
+
+                    <PasswordInput
+                        id="login-password"
+                        label="Password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
+                        autoComplete="current-password"
+                    />
+
+                    <div className="auth-inline-link"><Link to="/forgot-password">Forgot password?</Link></div>
+
+                    <button className="auth-submit" type="submit" disabled={loading}>
+                        {loading && <span className="auth-spinner" aria-hidden="true" />}
+                        {loading ? "Signing in…" : "Sign in"}
+                        {!loading && <span aria-hidden="true">→</span>}
+                    </button>
+                </form>
+
+                <p className="auth-bottom-link">New to Portfolio Generator? <Link to="/signup">Create an account</Link></p>
+            </section>
         </main>
     );
 }

@@ -157,29 +157,37 @@ function BuyCredits() {
 
     return (
         <main className="buy-credits-page">
-            <p><Link to={returnToBilling ? "/credits" : "/dashboard"}>{returnToBilling ? "← Back to Credits & Billing" : "← Back to Dashboard"}</Link></p>
-            <h1>Buy Credits</h1>
-            <p className="buy-credits-balance">Current balance: {user?.credits ?? 0} credits</p>
-            <p>Choose a credit pack for generating premium portfolios.</p>
+            <header className="buy-credits-header">
+                <p><Link to={returnToBilling ? "/credits" : "/dashboard"}>{returnToBilling ? "← Back to Credits & Billing" : "← Back to Dashboard"}</Link></p>
+                <p className="buy-credits-eyebrow">Keep building</p>
+                <h1>Choose your credit pack</h1>
+                <p>Credits are used when you download a portfolio for the first time. Editing and later downloads are free.</p>
+                <div className="buy-credits-balance"><span>Current balance</span><strong>{user?.credits ?? 0}<small> credits</small></strong></div>
+            </header>
 
             <section className="credit-pack-list" aria-label="Credit packs">
                 {CREDIT_PACKS.map((pack) => (
-                    <article className="credit-pack" key={pack.id}>
-                        <h2>{pack.credits} credits</h2>
+                    <article className={`credit-pack ${processingPack === pack.id ? "is-processing" : ""}`} key={pack.id} aria-busy={processingPack === pack.id}>
+                        {pack.credits === 30 && <span className="credit-pack-badge">Popular</span>}
+                        <p className="credit-pack-kicker">Credit pack</p>
+                        <h2>{pack.credits}<small> credits</small></h2>
                         <p className="credit-pack-price">{pack.price}</p>
+                        <p className="credit-pack-description">One-time purchase · no subscription</p>
                         <button
                             type="button"
                             onClick={() => handleBuy(pack)}
                             disabled={Boolean(processingPack)}
                         >
-                            {processingPack === pack.id ? stage || "Processing..." : "Buy"}
+                            {processingPack === pack.id ? <><span className="payment-spinner" aria-hidden="true" />{stage || "Processing…"}</> : `Continue · ${pack.price}`}
                         </button>
                     </article>
                 ))}
             </section>
 
-            {error && <p className="payment-feedback payment-error" role="alert">{error}</p>}
-            {message && <p className="payment-feedback payment-success" role="status">{message}</p>}
+            {processingPack && <p className="payment-processing" role="status" aria-live="polite" aria-busy="true"><span className="payment-spinner" aria-hidden="true" />{stage || "Processing payment…"} Complete checkout; credits appear after verification.</p>}
+            {error && <div className="payment-feedback payment-error" role="alert"><strong>Payment not confirmed</strong><p>{error}</p><p>If your bank shows a charge, wait for verification or contact support before trying again.</p></div>}
+            {message && <p className="payment-feedback payment-success" role="status"><span aria-hidden="true">✓</span>{message}</p>}
+            <p className="buy-credits-security-note">Secure checkout powered by Razorpay. Credits are added only after payment verification.</p>
         </main>
     );
 }

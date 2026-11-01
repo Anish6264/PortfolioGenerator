@@ -13,6 +13,7 @@ import BuilderImports from "../components/BuilderImports";
 import TemplatePricing from "../components/TemplatePricing";
 import { getTemplateGenerationCost } from "../utils/templatePricing";
 import { validateProposedPortfolioData } from "../utils/proposedPortfolioData";
+import "./Builder.css";
 
 const supportedSections = [
     "about",
@@ -973,6 +974,18 @@ function Builder() {
         ? formData.sectionOrder
         : supportedSections;
 
+    const builderSections = [
+        { id: "builder-personal", label: "Personal", complete: Boolean(formData.personal.name.trim() && formData.personal.title.trim() && formData.personal.email.trim()) },
+        { id: "builder-intro", label: "Introduction", complete: Boolean(formData.shortIntro.trim()) },
+        { id: "builder-about", label: "About", complete: Boolean(formData.about.trim()) },
+        { id: "builder-skills", label: "Skills", complete: formData.skills.length > 0 },
+        { id: "builder-education", label: "Education", complete: formData.education.some((item) => Object.values(item).some((value) => String(value || "").trim())) },
+        { id: "builder-experience", label: "Experience", complete: formData.experience.some((item) => Object.values(item).some((value) => String(value || "").trim())) },
+        { id: "builder-projects", label: "Projects", complete: formData.projects.some((item) => item.title.trim() || item.description.trim() || item.githubUrl.trim() || item.liveUrl.trim() || item.technologies.length) },
+        { id: "builder-social", label: "Social links", complete: Object.values(formData.social).some((value) => value.trim()) },
+        { id: "builder-customization", label: "Design", complete: Boolean(selectedTemplateId) }
+    ];
+
 
     // ==================================================
     // SOCIAL LINKS
@@ -1852,7 +1865,7 @@ function Builder() {
     ) {
 
         return (
-            <div>
+            <div className="portfolio-builder builder-loading">
 
                 <h2>
                     Loading portfolio...
@@ -1869,50 +1882,51 @@ function Builder() {
 
     return (
 
-        <div>
-
-            <h1>
+        <main className="portfolio-builder">
+            <header className="builder-header">
+                <div className="builder-heading-copy">
+                    <p className="builder-eyebrow">Portfolio workspace</p>
+                    <h1>
 
                 {isEditMode
                     ? "Edit Your Portfolio"
                     : "Create Your Portfolio"}
 
-            </h1>
+                    </h1>
 
 
-            <p>
+                    <p className="builder-lede">
 
                 {isEditMode
                     ? "Update your portfolio information."
                     : "Add your information below."}
 
-            </p>
-
-            {(id || createdPortfolioId) && (
-                <p>
-                    <button
-                        type="button"
-                        onClick={() => navigate(`/portfolio/${id || createdPortfolioId}/preview`, { state: { fromBuilder: true } })}
-                    >
-                        Preview Portfolio
-                    </button>
-                </p>
-            )}
-
+                    </p>
+                </div>
+                <div className="builder-header-actions">
+                    {(id || createdPortfolioId) && (
+                        <button className="builder-button builder-button-secondary" type="button" onClick={() => navigate(`/portfolio/${id || createdPortfolioId}/preview`, { state: { fromBuilder: true } })}>
+                            Preview portfolio
+                        </button>
+                    )}
+                    {isEditMode && <span className={`builder-save-status ${autosaveStatus === "Saved" ? "is-saved" : autosaveStatus === "Saving..." ? "is-saving" : "is-error"}`} role="status"><span aria-hidden="true" />{autosaveStatus === "Saved" ? "All changes saved" : autosaveStatus === "Saving..." ? "Saving changes…" : "Save failed — edit to retry"}</span>}
+                    {!isEditMode && <span className="builder-save-status" role="status"><span aria-hidden="true" />{meaningfulData ? "Ready to create · not saved yet" : "New portfolio · not saved yet"}</span>}
+                </div>
+            </header>
 
             {error && (
 
-                <p>
+                <p className="builder-notice builder-notice-error" role="alert">
 
                     {error}
 
                 </p>
             )}
 
-            {importMessage && <p role="status">{importMessage}</p>}
+            {importMessage && <p className="builder-notice builder-notice-info" role="status">{importMessage}</p>}
 
             {reviewProposal && (
-                <div ref={reviewProposalRef}>
+                <div className="builder-proposal-anchor" ref={reviewProposalRef}>
                     <ProposedChangesReview
                         key={reviewProposal.id}
                         proposal={reviewProposal}
@@ -1927,12 +1941,7 @@ function Builder() {
             )}
 
             {isEditMode && (
-                <p role="status">Autosave: {autosaveStatus}</p>
-            )}
-
-
-            {isEditMode && (
-                <section>
+                <section className="builder-section builder-template-panel">
                     <h2>Template</h2>
 
                     <button
@@ -1946,6 +1955,7 @@ function Builder() {
 
                     {showTemplateSelector && (
                         <div>
+                            {loadingTemplates && <p className="builder-progress-message" role="status" aria-busy="true"><span className="builder-spinner" aria-hidden="true" />Loading templates…</p>}
                             <label htmlFor="portfolio-template">
                                 Select a template
                             </label>
@@ -1973,13 +1983,25 @@ function Builder() {
             )}
 
             {selectedTemplateDetails?.id === selectedTemplateId && (
-                <section aria-label="Selected template">
+                <section className="builder-section builder-template-summary" aria-label="Selected template">
                     <h2>Template: {selectedTemplateDetails.template.name}</h2>
                     <TemplatePricing template={selectedTemplateDetails.template} />
                     <p>Your credits: {user?.credits ?? 0}</p>
                     <p>Creating and editing are free. {selectedTemplateCost === null ? "The first-download cost is unavailable." : `${selectedTemplateCost} credits are charged on the first successful download; later downloads are free.`}</p>
                 </section>
             )}
+
+            <nav className="builder-section-nav" aria-label="Portfolio sections">
+                <span className="builder-nav-title">Your portfolio</span>
+                <div className="builder-nav-links">
+                    <a href="#builder-imports"><span className="builder-nav-indicator" aria-hidden="true">↥</span>Import</a>
+                    {builderSections.map((section) => (
+                        <a key={section.id} href={`#${section.id}`} className={section.complete ? "is-complete" : ""}>
+                            <span className="builder-nav-indicator" aria-hidden="true">{section.complete ? "✓" : ""}</span>{section.label}
+                        </a>
+                    ))}
+                </div>
+            </nav>
 
             <BuilderImports
                 uploadedResumePath={uploadedResumePath}
@@ -2005,7 +2027,7 @@ function Builder() {
                 onGithubImport={handleGitHubImport}
             />
 
-            <form onSubmit={handleSubmit}>
+            <form className="builder-form" onSubmit={handleSubmit}>
 
 
 
@@ -2013,11 +2035,11 @@ function Builder() {
                     PERSONAL INFORMATION
                 ====================================== */}
 
-                <section>
+                <section className="builder-section" id="builder-personal" aria-labelledby="builder-personal-title">
 
-                    <h2>
+                    <div className="builder-section-heading"><span className="builder-section-number">01</span><div><p className="builder-eyebrow">Start with the basics</p><h2 id="builder-personal-title">
                         Personal Information
-                    </h2>
+                    </h2></div></div>
 
 
                     <input
@@ -2104,7 +2126,7 @@ function Builder() {
                     FILE UPLOADS
                 ====================================== */}
 
-                <section>
+                <section className="builder-section builder-image-section">
 
                     <h2>Profile Image</h2>
 
@@ -2173,11 +2195,9 @@ function Builder() {
                     SHORT INTRODUCTION
                 ====================================== */}
 
-                <section>
+                <section className="builder-section" id="builder-intro" aria-labelledby="builder-intro-title">
 
-                    <h2>
-                        Short Introduction
-                    </h2>
+                    <div className="builder-section-heading"><span className="builder-section-number">02</span><div><p className="builder-eyebrow">Make a strong first impression</p><h2 id="builder-intro-title">Short introduction</h2></div></div>
 
 
                     <textarea
@@ -2198,9 +2218,9 @@ function Builder() {
 
                 </section>
 
-                <section>
+                <section className="builder-section" id="builder-about" aria-labelledby="builder-about-title">
 
-                    <h2>About</h2>
+                    <div className="builder-section-heading"><span className="builder-section-number">03</span><div><p className="builder-eyebrow">Tell your story</p><h2 id="builder-about-title">About</h2></div></div>
 
                     <textarea
                         name="about"
@@ -2225,11 +2245,9 @@ function Builder() {
                     SKILLS
                 ====================================== */}
 
-                <section>
+                <section className="builder-section" id="builder-skills" aria-labelledby="builder-skills-title">
 
-                    <h2>
-                        Skills
-                    </h2>
+                    <div className="builder-section-heading"><span className="builder-section-number">04</span><div><p className="builder-eyebrow">What you bring</p><h2 id="builder-skills-title">Skills</h2></div></div>
 
                     <input
                         placeholder="Enter a skill"
@@ -2286,17 +2304,15 @@ function Builder() {
                     EDUCATION
                 ====================================== */}
 
-                <section>
+                <section className="builder-section" id="builder-education" aria-labelledby="builder-education-title">
 
-                    <h2>
-                        Education
-                    </h2>
+                    <div className="builder-section-heading"><span className="builder-section-number">05</span><div><p className="builder-eyebrow">Your learning journey</p><h2 id="builder-education-title">Education</h2></div></div>
 
 
                     {formData.education.map(
                         (education, index) => (
 
-                            <div key={index}>
+                            <div className="builder-entry-card" key={index}>
 
                                 <h3>
                                     Education {index + 1}
@@ -2413,17 +2429,15 @@ function Builder() {
                     EXPERIENCE
                 ====================================== */}
 
-                <section>
+                <section className="builder-section" id="builder-experience" aria-labelledby="builder-experience-title">
 
-                    <h2>
-                        Experience
-                    </h2>
+                    <div className="builder-section-heading"><span className="builder-section-number">06</span><div><p className="builder-eyebrow">Where you have made an impact</p><h2 id="builder-experience-title">Experience</h2></div></div>
 
 
                     {formData.experience.map(
                         (experience, index) => (
 
-                            <div key={index}>
+                            <div className="builder-entry-card" key={index}>
 
                                 <h3>
                                     Experience {index + 1}
@@ -2539,17 +2553,15 @@ function Builder() {
                     PROJECTS
                 ====================================== */}
 
-                <section>
+                <section className="builder-section" id="builder-projects" aria-labelledby="builder-projects-title">
 
-                    <h2>
-                        Projects
-                    </h2>
+                    <div className="builder-section-heading"><span className="builder-section-number">07</span><div><p className="builder-eyebrow">Show what you have built</p><h2 id="builder-projects-title">Projects</h2></div></div>
 
 
                     {formData.projects.map(
                         (project, projectIndex) => (
 
-                            <div
+                            <div className="builder-entry-card"
                                 key={projectIndex}
                             >
 
@@ -2726,11 +2738,9 @@ function Builder() {
                     SOCIAL LINKS
                 ====================================== */}
 
-                <section>
+                <section className="builder-section" id="builder-social" aria-labelledby="builder-social-title">
 
-                    <h2>
-                        Social Links
-                    </h2>
+                    <div className="builder-section-heading"><span className="builder-section-number">08</span><div><p className="builder-eyebrow">Stay connected</p><h2 id="builder-social-title">Social links</h2></div></div>
 
 
                     <input
@@ -2770,8 +2780,8 @@ function Builder() {
 
                 </section>
 
-                <section>
-                    <h2>Portfolio Customization</h2>
+                <section className="builder-section" id="builder-customization" aria-labelledby="builder-customization-title">
+                    <div className="builder-section-heading"><span className="builder-section-number">09</span><div><p className="builder-eyebrow">Make it yours</p><h2 id="builder-customization-title">Portfolio customization</h2></div></div>
 
                     <div>
                         <label>
@@ -3003,7 +3013,7 @@ function Builder() {
                 </div>
             )}
 
-        </div>
+        </main>
     );
 }
 

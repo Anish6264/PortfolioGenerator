@@ -1,0 +1,9 @@
+.admin-template-edit > p:first-child { margin: 0 0 1rem; }
+.admin-template-edit h1 { margin-bottom: 1.25rem; }
+.admin-template-edit form { max-width: 760px; padding: clamp(1rem, 3vw, 1.75rem); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-sm); }
+.admin-template-edit form > p { margin: 0 0 1.2rem; }
+.admin-template-edit form label { font-weight: 650; }
+.admin-template-edit form input:not([type="checkbox"]),.admin-template-edit form textarea,.admin-template-edit form select { display: block; margin-top: .35rem; }
+.admin-template-edit form textarea { min-height: 8rem; }
+.admin-template-edit form input[type="checkbox"] { width: 1rem; height: 1rem; margin-right: .45rem; accent-color: var(--color-primary); }
+.admin-template-edit form button + button { margin-left: .4rem; }

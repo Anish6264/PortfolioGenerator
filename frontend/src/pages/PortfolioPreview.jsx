@@ -5,6 +5,7 @@ import api from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import { downloadPortfolioZip } from "../utils/downloadPortfolio";
 import { getTemplateGenerationCost } from "../utils/templatePricing";
+import "./PortfolioPreview.css";
 
 const getPreviewError = (error) => {
     const status = error.response?.status;
@@ -112,17 +113,18 @@ function PortfolioPreview() {
     };
 
     if (loading) {
-        return <main><h2>Loading portfolio preview…</h2></main>;
+        return <main className="portfolio-preview-page portfolio-preview-loading"><span className="preview-loader" aria-hidden="true" /><h2 role="status" aria-busy="true">Preparing your preview…</h2><div className="preview-skeleton" aria-hidden="true"><span /><span /><span /></div></main>;
     }
 
     if (error || !portfolio) {
         return (
-            <main>
+            <main className="portfolio-preview-page portfolio-preview-error-state">
+                <span className="preview-error-icon" aria-hidden="true">!</span>
+                <p className="preview-eyebrow">Portfolio preview</p>
                 <h1>Unable to load preview</h1>
                 <p role="alert">{error || "The portfolio preview could not be loaded."}</p>
-                <Link to="/dashboard">Back to Dashboard</Link>
-                {location.state?.fromBuilder && <p><Link to={`/builder/edit/${id}`}>Back to Builder</Link></p>}
-                <button type="button" onClick={() => { setLoading(true); setRetryCount((count) => count + 1); }}>Try again</button>
+                <div className="preview-error-actions"><button className="preview-button preview-button-primary" type="button" onClick={() => { setLoading(true); setRetryCount((count) => count + 1); }}>Try again</button><Link className="preview-button preview-button-secondary" to="/dashboard">Back to dashboard</Link>
+                {location.state?.fromBuilder && <Link className="preview-button preview-button-secondary" to={`/builder/edit/${id}`}>Back to builder</Link>}</div>
             </main>
         );
     }
@@ -135,38 +137,31 @@ function PortfolioPreview() {
     const editPath = `/builder/edit/${id}`;
 
     return (
-        <main style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-            <header style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem", padding: "0.75rem 1rem", borderBottom: "1px solid #ddd" }}>
-                <Link to="/dashboard">Back to Dashboard</Link>
-                {location.state?.fromBuilder && <Link to={editPath}>Back to Builder</Link>}
-                <h1 style={{ fontSize: "1.25rem", margin: "0 auto 0 0.5rem" }}>Portfolio Preview</h1>
-                <Link to={editPath}>Edit Portfolio</Link>
-                <button type="button" onClick={handleDownload} disabled={downloading || (!isPaid && (!Number.isInteger(cost) || insufficientCredits))}>
+        <main className="portfolio-preview-page">
+            <header className="portfolio-preview-header">
+                <div className="preview-header-links"><Link to="/dashboard">← Dashboard</Link>{location.state?.fromBuilder && <Link to={editPath}>← Builder</Link>}</div>
+                <div className="preview-header-title"><p className="preview-eyebrow">Ready to share</p><h1>Portfolio preview</h1><p>{portfolio.personal?.name || "Your portfolio"} · {template?.name || "Selected template"}</p></div>
+                <div className="preview-header-actions"><Link className="preview-button preview-button-secondary" to={editPath}>Edit portfolio</Link>
+                <button className="preview-button preview-button-primary" type="button" onClick={handleDownload} disabled={downloading || (!isPaid && (!Number.isInteger(cost) || insufficientCredits))}>
+                    {downloading && <span className="preview-loader preview-loader-small" aria-hidden="true" />}
                     {downloading
                         ? "Preparing download…"
                         : isPaid
                             ? "Download Again — Free"
                             : `Download — ${Number.isInteger(cost) ? `${cost} credit${cost === 1 ? "" : "s"}` : "cost unavailable"}`}
-                </button>
+                </button></div>
             </header>
 
-            <section aria-live="polite" style={{ padding: "0.25rem 1rem" }}>
-                {!isPaid && Number.isInteger(cost) && <p>{cost} credit{cost === 1 ? "" : "s"} on first download.</p>}
-                {isPaid && <p>First download paid — this version is free to download again.</p>}
+            <section className="portfolio-preview-feedback" aria-live="polite">
+                <div className="preview-credit-note"><span aria-hidden="true">✦</span>{!isPaid && Number.isInteger(cost) && <p>{cost} credit{cost === 1 ? "" : "s"} on first download.</p>}{isPaid && <p>First download paid — this version is free to download again.</p>}</div>
                 {insufficientCredits && (
-                    <p role="status">You have {user.credits} credits; this download needs {cost}. <Link to="/buy-credits">Buy credits</Link></p>
+                    <p className="preview-notice preview-notice-warning" role="status">You have {user.credits} credits; this download needs {cost}. <Link to="/buy-credits">Buy credits</Link></p>
                 )}
-                {downloadMessage && <p role="status">{downloadMessage}</p>}
-                {downloadError && <p role="alert">{downloadError}</p>}
+                {downloadMessage && <p className="preview-notice preview-notice-success" role="status">{downloadMessage}</p>}
+                {downloadError && <p className="preview-notice preview-notice-error" role="alert">{downloadError}</p>}
             </section>
 
-            <iframe
-                title="Generated portfolio preview"
-                srcDoc={html}
-                sandbox="allow-scripts"
-                referrerPolicy="no-referrer"
-                style={{ width: "100%", flex: 1, minHeight: "70vh", border: 0, background: "white" }}
-            />
+            <div className="portfolio-browser-frame"><div className="portfolio-browser-toolbar"><span /><span /><span /><p>{portfolio.status === "published" && portfolio.slug ? `${window.location.host}/p/${portfolio.slug}` : "Private portfolio preview"}</p></div><iframe className="portfolio-preview-frame" title="Generated portfolio preview" srcDoc={html} sandbox="allow-scripts" referrerPolicy="no-referrer" /></div>
         </main>
     );
 }
